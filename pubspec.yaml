@@ -98,3 +98,5 @@ flutter_icons:
   android: true
   ios: true
   image_path: "assets/icon.jpg"
+  adaptive_icon_foreground: "assets/NotesChatLogoFG.png"
+  adaptive_icon_background: "assets/NotesChatLogoBG.png"
