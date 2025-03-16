@@ -65,6 +65,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   List<MessageData> messages = [];
   bool callBackAdded = false;
   String lastId = "";
+  String sessionId = "";
 
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
@@ -75,11 +76,25 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
   void setup() async {
     try {
+      while(sessionId.isEmpty){
+        var res = await http.post(Uri.parse('http://localhost:5213/api/login'), headers: {
+          "Content-Type": "application/json; charset=UTF-8"
+        }, body: jsonEncode({
+          "name": "Admin",
+          "password": "password"
+        }));
+        print(res.headers);
+        var cookie = res.headers['set-cookie'];
+        sessionId = cookie?.split('sessionId=')[1].split(';')[0] ?? "";
+        print(sessionId);
+        await Future.delayed(Duration(seconds: 1));
+      }
+
       if(_connector != null){
         _connector?.sink.close();
         _connector = null;
       }
-      _connector = WebSocketChannel.connect(Uri.parse('ws://localhost:6798'));
+      _connector = WebSocketChannel.connect(Uri.parse('ws://localhost:6798?sessionId=$sessionId'));
       await _connector?.ready;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         setState(() {
