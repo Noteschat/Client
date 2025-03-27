@@ -77,7 +77,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   void setup() async {
     try {
       while(sessionId.isEmpty){
-        var res = await http.post(Uri.parse('http://localhost:5213/api/login'), headers: {
+        var res = await http.post(Uri.parse('http://localhost/api/identity/login'), headers: {
           "Content-Type": "application/json; charset=UTF-8"
         }, body: jsonEncode({
           "name": "Admin",
@@ -94,7 +94,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
         _connector?.sink.close();
         _connector = null;
       }
-      _connector = WebSocketChannel.connect(Uri.parse('ws://localhost:6798?sessionId=$sessionId'));
+      _connector = WebSocketChannel.connect(Uri.parse('ws://localhost/api/chatrouter?sessionId=$sessionId'));
       await _connector?.ready;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         setState(() {
