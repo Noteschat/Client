@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,8 +8,11 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/v4.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+// ignore: depend_on_referenced_packages
 import 'package:web_socket/web_socket.dart';
 import 'package:http/http.dart' as http;
+
+String host = "192.168.2.83";
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,20 +69,37 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   bool connected = false;
   List<MessageData> messages = [];
   bool callBackAdded = false;
-  String lastId = "";
   String sessionId = "";
+  List<MessageData> backup = [];
+  late Queue queue;
 
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
 
   _MyHomePageState() {
+    queue = Queue(handleMessage: (data) {
+      if(messages.last.id == data.id) {
+        setState(() {
+          messages.last = MessageData(
+            text: messages.last.text + data.text,
+            sentBySelf: data.sentBySelf,
+            id: data.id,
+            version: data.version
+          );
+        });
+      } else {
+        setState(() {
+          messages.add(data);
+        });
+      }
+    });
     setup();
   }
 
   void setup() async {
     try {
       while(sessionId.isEmpty){
-        var res = await http.post(Uri.parse('http://localhost/api/identity/login'), headers: {
+        var res = await http.post(Uri.parse('http://$host/api/identity/login'), headers: {
           "Content-Type": "application/json; charset=UTF-8"
         }, body: jsonEncode({
           "name": "Admin",
@@ -94,7 +116,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
         _connector?.sink.close();
         _connector = null;
       }
-      _connector = WebSocketChannel.connect(Uri.parse('ws://localhost/api/chatrouter?sessionId=$sessionId'));
+      _connector = WebSocketChannel.connect(Uri.parse('ws://$host/api/chatrouter?sessionId=$sessionId'));
       await _connector?.ready;
       WidgetsBinding.instance.scheduleFrameCallback((_) {
         setState(() {
@@ -104,15 +126,16 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       });
       return;
     } on SocketException catch(e) {
-      print("${e}");
+      print("$e");
     } on WebSocketChannelException catch (e) {
+      // ignore: unrelated_type_equality_checks
       if(e.inner.runtimeType == "WebSocketException") {
         print((e.inner as WebSocketException).message);
       } else {
-        print("${e}");
+        print("$e");
       }
     } catch(e) {
-      print("Unexpected Exception: ${e}");
+      print("Unexpected Exception: $e");
     }
     print("Trying again in 1 second.");
     await Future.delayed(Duration(seconds: 1));
@@ -125,27 +148,34 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
         print("listening");
         _connector?.stream.listen(
           (data) {
+            print("Received message");
             var dataParts = (data as String).split("\n");
             var msgId = dataParts[0];
             var version = dataParts[1];
             var text = dataParts.sublist(2).join('\n');
-            // if fetching
-            //  save to list of messages
-            // else
-            //  do stuff below
+            
             setState(() {
-              if(msgId == lastId){
-                messages.last = MessageData(
-                  text: messages.last.text + text,
-                  sentBySelf: false
-                );
-              } else{
-                messages.add(MessageData(
-                  text: text,
-                  sentBySelf: false
-                ));
-                lastId = msgId;
-              }
+              queue.add(MessageData(
+                text: text,
+                sentBySelf: false,
+                version: int.parse(version),
+                id: msgId
+              ));
+              // if(msgId == messages.last.id){
+              //   messages.last = MessageData(
+              //     text: messages.last.text + text,
+              //     sentBySelf: false,
+              //     version: int.parse(version),
+              //     id: msgId
+              //   );
+              // } else{
+              //   messages.add(MessageData(
+              //     text: text,
+              //     sentBySelf: false,
+              //     version: int.parse(version),
+              //     id: msgId
+              //   ));
+              // }
             });
           },
           onDone: () {
@@ -172,41 +202,49 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   }
 
   void fetch() async {
-    print("fetching");
     var headers = <String, String>{
-      "Cookie": "sessionId=" + sessionId
+      "Cookie": "sessionId=$sessionId"
     };
-    var user = await http.get(Uri.parse("http://localhost/api/identity/login/valid"), headers: headers);
+    var user = await http.get(Uri.parse("http://$host/api/identity/login/valid"), headers: headers);
     if(user.statusCode != 200){
       print(user.statusCode);
       fetch();
       return;
     }
     var userId = jsonDecode(user.body)["id"];
-    var res = await http.get(Uri.parse("http://localhost/api/chat/storage/e97271a3-c3de-4ff8-b172-2b9e3fafec9c"), headers: headers);
+    print("waiting");
+
+    int waited = 0;
+    while(queue.length() <= 0 && waited < 60){
+      await Future.delayed(Duration(milliseconds: 100));
+      waited++;
+    }
+    print("fetching");
+
+    var res = await http.get(Uri.parse("http://$host/api/chat/storage/e97271a3-c3de-4ff8-b172-2b9e3fafec9c"), headers: headers);
 
     if(res.statusCode == 200) {
+      print("Fetching done");
       var msgs = jsonDecode(res.body)["messages"];
       for(var message in msgs) {
         setState(() {
           messages.add(
             MessageData(
               text: message["content"],
-              sentBySelf: message["userId"] == userId
+              sentBySelf: message["userId"] == userId,
+              id: message["messageId"],
+              version: message["version"]
             )
           );
         });
       }
+      setState(() {
+        queue.fetching = false;
+      });
     }else{
       print(res.statusCode);
     }
   }
-  // void fetch()
-  // fetch messages from storage
-  // onDone
-  //  check saved message updates against current version from storage
-  //  combine saved and storage
-  //  fetching = false
 
   @override
   Widget build(BuildContext context) {
@@ -265,14 +303,16 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                   child: IconButton.filled(
                     onPressed: () {
                       var value = _controller.text;
+                      var message = MessageData(
+                        text: value, 
+                        sentBySelf: true,
+                        id: UuidV4().generate(),
+                        version: 0
+                      );
                       setState(() {
-                        messages.add(MessageData(
-                          text: value, 
-                          sentBySelf: true
-                        ));
+                        messages.add(message);
                       });
-                      var msg = "${UuidV4().generate()}\n0\n$value";
-                      _connector?.sink.add(msg);
+                      _connector?.sink.add(message.toServerString());
                       _controller.clear();
                       _focusNode.requestFocus();
                     }, 
@@ -291,8 +331,14 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 class MessageData {
   final String text;
   final bool sentBySelf;
+  final int version;
+  final String id;
 
-  MessageData({required this.text, required this.sentBySelf});
+  MessageData({required this.text, required this.sentBySelf, required this.id, required this.version});
+
+  String toServerString() {
+    return "$id\n$version\n$text";
+  }
 }
 
 class Message extends StatelessWidget {
@@ -336,5 +382,37 @@ class Message extends StatelessWidget {
       )
     );
   }
-  
+}
+
+class Queue {
+  bool fetching = true;
+  List<MessageData> queue = [];
+
+  final Function(MessageData data) handleMessage;
+
+  Queue({required this.handleMessage}) {
+    handle();
+  }
+
+  int length() {
+    return queue.length;
+  }
+
+  void add(MessageData data) {
+    queue.add(data);
+  }
+
+  void handle() async {
+    if(!fetching) {
+      List<MessageData> internal = [];
+      internal.addAll(queue);
+      queue.clear();
+
+      for(var message in internal) {
+        handleMessage(message);
+      }
+    }
+    await Future.delayed(Duration(milliseconds: 100));
+    handle();
+  }
 }
