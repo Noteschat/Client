@@ -96,7 +96,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       }
       _connector = WebSocketChannel.connect(Uri.parse('ws://localhost/api/chatrouter?sessionId=$sessionId'));
       await _connector?.ready;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.scheduleFrameCallback((_) {
         setState(() {
           connected = true;
         });
@@ -122,11 +122,17 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   void addListener() {
     if(_connector != null && connected){
       try {
+        print("listening");
         _connector?.stream.listen(
           (data) {
             var dataParts = (data as String).split("\n");
             var msgId = dataParts[0];
-            var text = dataParts.sublist(1).join('\n');
+            var version = dataParts[1];
+            var text = dataParts.sublist(2).join('\n');
+            // if fetching
+            //  save to list of messages
+            // else
+            //  do stuff below
             setState(() {
               if(msgId == lastId){
                 messages.last = MessageData(
@@ -161,8 +167,46 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       catch (_) {
         setup();
       }
+      fetch();
     }
   }
+
+  void fetch() async {
+    print("fetching");
+    var headers = <String, String>{
+      "Cookie": "sessionId=" + sessionId
+    };
+    var user = await http.get(Uri.parse("http://localhost/api/identity/login/valid"), headers: headers);
+    if(user.statusCode != 200){
+      print(user.statusCode);
+      fetch();
+      return;
+    }
+    var userId = jsonDecode(user.body)["id"];
+    var res = await http.get(Uri.parse("http://localhost/api/chat/storage/e97271a3-c3de-4ff8-b172-2b9e3fafec9c"), headers: headers);
+
+    if(res.statusCode == 200) {
+      var msgs = jsonDecode(res.body)["messages"];
+      for(var message in msgs) {
+        setState(() {
+          messages.add(
+            MessageData(
+              text: message["content"],
+              sentBySelf: message["userId"] == userId
+            )
+          );
+        });
+      }
+    }else{
+      print(res.statusCode);
+    }
+  }
+  // void fetch()
+  // fetch messages from storage
+  // onDone
+  //  check saved message updates against current version from storage
+  //  combine saved and storage
+  //  fetching = false
 
   @override
   Widget build(BuildContext context) {
@@ -227,7 +271,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                           sentBySelf: true
                         ));
                       });
-                      var msg = "${UuidV4().generate()}\n$value";
+                      var msg = "${UuidV4().generate()}\n0\n$value";
                       _connector?.sink.add(msg);
                       _controller.clear();
                       _focusNode.requestFocus();
@@ -283,7 +327,7 @@ class Message extends StatelessWidget {
                 padding: const EdgeInsets.all(16.0), // Adds padding around the text
                 child: Text(
                   data.text,
-                  textAlign: data.sentBySelf ? TextAlign.right : TextAlign.left,
+                  textAlign: TextAlign.left,
                 ),
               ),
             ),
