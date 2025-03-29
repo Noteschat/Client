@@ -13,6 +13,8 @@ import 'package:web_socket/web_socket.dart';
 import 'package:http/http.dart' as http;
 
 String host = "192.168.2.83";
+String chatId = "524421e5-0e87-4504-92d3-583dc34cd375";
+late User user;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -67,10 +69,9 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   WebSocketChannel? _connector;
   bool connected = false;
-  List<MessageData> messages = [];
+  List<ServerMessage> messages = [];
   bool callBackAdded = false;
   String sessionId = "";
-  List<MessageData> backup = [];
   late Queue queue;
 
   final TextEditingController _controller = TextEditingController();
@@ -78,15 +79,18 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
   _MyHomePageState() {
     queue = Queue(handleMessage: (data) {
-      if(messages.last.id == data.id) {
-        setState(() {
-          messages.last = MessageData(
-            text: messages.last.text + data.text,
-            sentBySelf: data.sentBySelf,
-            id: data.id,
-            version: data.version
-          );
-        });
+      if(messages.last.messageId == data.messageId) {
+        if(data.version > messages.last.version) {
+          setState(() {
+            messages.last = ServerMessage(
+              content: messages.last.content + data.content,
+              userId: data.userId,
+              messageId: data.messageId,
+              version: data.version,
+              chatId: data.chatId
+            );
+          });
+        }
       } else {
         setState(() {
           messages.add(data);
@@ -105,12 +109,21 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
           "name": "Admin",
           "password": "password"
         }));
-        print(res.headers);
         var cookie = res.headers['set-cookie'];
         sessionId = cookie?.split('sessionId=')[1].split(';')[0] ?? "";
-        print(sessionId);
         await Future.delayed(Duration(seconds: 1));
       }
+
+      var headers = <String, String>{
+        "Cookie": "sessionId=$sessionId"
+      };
+      var userRes = await http.get(Uri.parse("http://$host/api/identity/login/valid"), headers: headers);
+      if(userRes.statusCode != 200){
+        print(userRes.statusCode);
+        fetch();
+        return;
+      }
+      user = User.fromJson(jsonDecode(userRes.body));
 
       if(_connector != null){
         _connector?.sink.close();
@@ -145,51 +158,25 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   void addListener() {
     if(_connector != null && connected){
       try {
-        print("listening");
         _connector?.stream.listen(
           (data) {
-            print("Received message");
-            var dataParts = (data as String).split("\n");
-            var msgId = dataParts[0];
-            var version = dataParts[1];
-            var text = dataParts.sublist(2).join('\n');
-            
+            ServerMessage serverJson = ServerMessage.fromJson(jsonDecode(data as String));            
             setState(() {
-              queue.add(MessageData(
-                text: text,
-                sentBySelf: false,
-                version: int.parse(version),
-                id: msgId
-              ));
-              // if(msgId == messages.last.id){
-              //   messages.last = MessageData(
-              //     text: messages.last.text + text,
-              //     sentBySelf: false,
-              //     version: int.parse(version),
-              //     id: msgId
-              //   );
-              // } else{
-              //   messages.add(MessageData(
-              //     text: text,
-              //     sentBySelf: false,
-              //     version: int.parse(version),
-              //     id: msgId
-              //   ));
-              // }
+              queue.add(serverJson);
             });
           },
           onDone: () {
-            print("Server closed Connection. Trying to reconnect");
-              setState(() {
-                connected = false;
-              });
+            // server closed, reconnecting
+            setState(() {
+              connected = false;
+            });
             setup();
           },
           onError: (_) {
-            print("Connection to server lost. Trying to reconnect");
-              setState(() {
-                connected = false;
-              });
+            // connection lost, reconnecting
+            setState(() {
+              connected = false;
+            });
             setup();
           }
         );
@@ -205,37 +192,27 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     var headers = <String, String>{
       "Cookie": "sessionId=$sessionId"
     };
-    var user = await http.get(Uri.parse("http://$host/api/identity/login/valid"), headers: headers);
-    if(user.statusCode != 200){
-      print(user.statusCode);
-      fetch();
-      return;
-    }
-    var userId = jsonDecode(user.body)["id"];
-    print("waiting");
-
+    // to prevent skipping messages, we wait for the next block for up to 5-seconds
     int waited = 0;
-    while(queue.length() <= 0 && waited < 60){
+    while(queue.length() <= 0 && waited < 50){
       await Future.delayed(Duration(milliseconds: 100));
       waited++;
     }
-    print("fetching");
 
-    var res = await http.get(Uri.parse("http://$host/api/chat/storage/e97271a3-c3de-4ff8-b172-2b9e3fafec9c"), headers: headers);
+    var res = await http.get(Uri.parse("http://$host/api/chat/storage/$chatId"), headers: headers);
 
     if(res.statusCode == 200) {
-      print("Fetching done");
-      var msgs = jsonDecode(res.body)["messages"];
+      List<dynamic> msgs = jsonDecode(res.body)["messages"];
       for(var message in msgs) {
+        StorageMessage msg = StorageMessage.fromJson(message);
         setState(() {
-          messages.add(
-            MessageData(
-              text: message["content"],
-              sentBySelf: message["userId"] == userId,
-              id: message["messageId"],
-              version: message["version"]
-            )
-          );
+          messages.add(ServerMessage(
+            version: msg.version,
+            messageId: msg.messageId,
+            content: msg.content,
+            chatId: chatId,
+            userId: msg.userId
+          ));
         });
       }
       setState(() {
@@ -301,21 +278,22 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                 Padding(
                   padding: const EdgeInsets.only(left: 12.0, bottom: 20.0),
                   child: IconButton.filled(
-                    onPressed: () {
+                    onPressed: connected ? () {
                       var value = _controller.text;
-                      var message = MessageData(
-                        text: value, 
-                        sentBySelf: true,
-                        id: UuidV4().generate(),
-                        version: 0
+                      var message = ServerMessage(
+                        content: value, 
+                        userId: user.id,
+                        messageId: UuidV4().generate(),
+                        version: 0,
+                        chatId: chatId
                       );
                       setState(() {
                         messages.add(message);
                       });
-                      _connector?.sink.add(message.toServerString());
+                      _connector?.sink.add(jsonEncode(message.toJson()));
                       _controller.clear();
                       _focusNode.requestFocus();
-                    }, 
+                    } : null,
                     icon: Icon(Icons.send),
                   ),
                 )
@@ -328,21 +306,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   }
 }
 
-class MessageData {
-  final String text;
-  final bool sentBySelf;
-  final int version;
-  final String id;
-
-  MessageData({required this.text, required this.sentBySelf, required this.id, required this.version});
-
-  String toServerString() {
-    return "$id\n$version\n$text";
-  }
-}
-
 class Message extends StatelessWidget {
-  final MessageData data;
+  final ServerMessage data;
 
   const Message({super.key, required this.data});
 
@@ -351,7 +316,7 @@ class Message extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(top: 8.0),
       child: Row(
-        mainAxisAlignment: data.sentBySelf ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: data.userId == user.id ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
           Flexible( // Allows the container to be constrained within available space
             child: ConstrainedBox(
@@ -361,18 +326,18 @@ class Message extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.only(
-                    topLeft: data.sentBySelf ? Radius.circular(20) : Radius.circular(0), 
-                    topRight: data.sentBySelf ? Radius.circular(0) : Radius.circular(20), 
+                    topLeft: data.userId == user.id ? Radius.circular(20) : Radius.circular(0), 
+                    topRight: data.userId == user.id ? Radius.circular(0) : Radius.circular(20), 
                     bottomLeft: Radius.circular(20), 
                     bottomRight: Radius.circular(20)
                   ),
-                  color: data.sentBySelf
+                  color: data.userId == user.id
                       ? Theme.of(context).colorScheme.secondaryContainer
                       : Theme.of(context).colorScheme.tertiaryContainer,
                 ),
                 padding: const EdgeInsets.all(16.0), // Adds padding around the text
                 child: Text(
-                  data.text,
+                  data.content,
                   textAlign: TextAlign.left,
                 ),
               ),
@@ -386,9 +351,9 @@ class Message extends StatelessWidget {
 
 class Queue {
   bool fetching = true;
-  List<MessageData> queue = [];
+  List<ServerMessage> queue = [];
 
-  final Function(MessageData data) handleMessage;
+  final Function(ServerMessage data) handleMessage;
 
   Queue({required this.handleMessage}) {
     handle();
@@ -398,13 +363,13 @@ class Queue {
     return queue.length;
   }
 
-  void add(MessageData data) {
+  void add(ServerMessage data) {
     queue.add(data);
   }
 
   void handle() async {
     if(!fetching) {
-      List<MessageData> internal = [];
+      List<ServerMessage> internal = [];
       internal.addAll(queue);
       queue.clear();
 
@@ -414,5 +379,83 @@ class Queue {
     }
     await Future.delayed(Duration(milliseconds: 100));
     handle();
+  }
+}
+
+class StorageMessage {
+  final int version;
+  final String messageId;
+  final String content;
+  final String userId;
+
+  StorageMessage({required this.version, required this.messageId, required this.content, required this.userId});
+
+  factory StorageMessage.fromJson(Map<String, dynamic> json) {
+    return StorageMessage(
+      version: json['version'],
+      messageId: json['messageId'],
+      content: json['content'],
+      userId: json['userId'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'version': version,
+      'messageId': messageId,
+      'content': content,
+      'userId': userId,
+    };
+  }
+}
+
+class ServerMessage {
+  final int version;
+  final String messageId;
+  final String content;
+  final String chatId;
+  final String userId;
+
+  ServerMessage({required this.version, required this.messageId, required this.content, required this.chatId, required this.userId});
+
+  factory ServerMessage.fromJson(Map<String, dynamic> json) {
+    return ServerMessage(
+      version: json['version'],
+      messageId: json['messageId'],
+      content: json['content'],
+      chatId: json['chatId'],
+      userId: json['userId'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'version': version,
+      'messageId': messageId,
+      'content': content,
+      'chatId': chatId,
+      'userId': userId,
+    };
+  }
+}
+
+class User {
+  final String id;
+  final String name;
+
+  User({required this.id, required this.name});
+
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['id'],
+      name: json['name'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+    };
   }
 }
