@@ -11,7 +11,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket/web_socket.dart';
 import 'package:http/http.dart' as http;
 
-String host = "192.168.2.83";
+String host = "localhost";
 late User user;
 String sessionId = "";
 
