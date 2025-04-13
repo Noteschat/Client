@@ -135,7 +135,7 @@ class _ChatSelectState extends State<ChatSelect> {
           "Content-Type": "application/json; charset=UTF-8"
         }, body: jsonEncode({
           "name": "Admin",
-          "password": "password"
+          "password": "adminPassword"
         }));
         var cookie = res.headers['set-cookie'];
         sessionId = cookie?.split('sessionId=')[1].split(';')[0] ?? "";
@@ -286,25 +286,30 @@ class NewChatView extends StatelessWidget {
               child: FilledButton(
                 onPressed: () async {
                   if (formKey.currentState!.validate()) {
-                    var res = await http.post(
-                      Uri.parse("http://$host/api/chat/storage"),
-                      headers: headers,
-                      body: jsonEncode({
-                        "users": [
-                          user.id,
-                          "31247d37-7d46-4948-8fdb-9c69a7b509e0"
-                        ],
-                        "name": nameController.text,
-                      })
-                    );
-                    if(res.statusCode != 200) {
-                      print(res.statusCode);
-                      return;
+                    try {
+                      var res = await http.post(
+                        Uri.parse("http://$host/api/chat/storage"),
+                        headers: headers,
+                        body: jsonEncode({
+                          "users": [
+                            user.id,
+                            "7370a454-153c-4964-b411-b44194ee3acb"
+                          ],
+                          "name": nameController.text,
+                        })
+                      );
+                      if(res.statusCode != 200) {
+                        print(res.statusCode);
+                        return;
+                      }
+                      var newId = jsonDecode(res.body)["id"];
+                      Navigator.of(context).pop(
+                        Chat(id: newId, name: nameController.text)
+                      );
+                    } catch (e) {
+                      print("Error on Chat creation:");
+                      print(e);
                     }
-                    var newId = jsonDecode(res.body)["id"];
-                    Navigator.of(context).pop(
-                      Chat(id: newId, name: nameController.text)
-                    );
                   }
                 },
                 child: const Text("Start Chat"),
