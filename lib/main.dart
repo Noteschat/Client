@@ -69,6 +69,7 @@ class ChatSelect extends StatefulWidget {
 
 class _ChatSelectState extends State<ChatSelect> {
   List<Chat> chats = [];
+  List<User> users = [];
 
   _ChatSelectState() {
     setup();
@@ -84,12 +85,12 @@ class _ChatSelectState extends State<ChatSelect> {
           Padding(
             padding: EdgeInsets.only(right: 24.0),
             child: IconButton(
-              icon: Icon(Icons.add),
-              onPressed: () async {
+              icon: Icon(users.isEmpty ? Icons.circle_outlined : Icons.add),
+              onPressed: users.isEmpty ? null : () async {
                 Chat? newChat = await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => NewChatView()
+                    builder: (context) => NewChatView(users: users,)
                   )
                 );
                 if(newChat != null) {
@@ -157,17 +158,37 @@ class _ChatSelectState extends State<ChatSelect> {
   }
 
   void fetch() async {
-    var storageRes = await http.get(Uri.parse("http://$host/api/chat/storage"), headers: headers);
-    if(storageRes.statusCode == 200) {
-      var chatsRes = jsonDecode(storageRes.body)["chats"];
-      setState(() {
-        for(var chat in chatsRes){
-          chats.add(Chat.fromJson(chat));
-        }
-      });
-    } else {
-      print(storageRes.statusCode);
-    }
+    List<Future> tasks = [];
+    
+    tasks.add(http.get(Uri.parse("http://$host/api/chat/storage"), headers: headers).then((res) {
+      if(res.statusCode == 200) {
+        var chatsRes = jsonDecode(res.body)["chats"];
+        setState(() {
+          for(var chat in chatsRes){
+            chats.add(Chat.fromJson(chat));
+          }
+        });
+      } else {
+        print(res.statusCode);
+      }
+    }));
+    tasks.add(http.get(Uri.parse("http://$host/api/identity/user"), headers: headers).then((res) {
+      if(res.statusCode == 200) {
+        var usersRes = jsonDecode(res.body)["users"];
+        setState(() {
+          for(var userJson in usersRes){
+            var contact = User.fromJson(userJson);
+            if(contact.id != user.id) {
+              users.add(contact);
+            }
+          }
+        });
+      } else {
+        print(res.statusCode);
+      }
+    }));
+
+    await Future.wait(tasks);
   }
 }
 
@@ -250,12 +271,27 @@ class ChatCard extends StatelessWidget {
   
 }
 
-class NewChatView extends StatelessWidget {
+class NewChatView extends StatefulWidget {
+  final List<User> users;
+
+  const NewChatView({super.key, required this.users});
+
+  @override
+  // ignore: no_logic_in_create_state
+  State<NewChatView> createState() => _NewChatViewState(users: users);
+}
+
+class _NewChatViewState extends State<NewChatView> {
   final formKey = GlobalKey<FormState>();
   final nameController = TextEditingController();
+  final List<User> users;
 
-  NewChatView({super.key});
-  
+  late User selectedUser;
+
+  _NewChatViewState({required this.users}) {
+    selectedUser = users.first;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -270,15 +306,30 @@ class NewChatView extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.all(24),
-              child: TextFormField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: "Name"),
-                validator: (value) {
-                  if(value == null || value.isEmpty){
-                    return "Enter a name...";
-                  }
-                  return null;
-                },
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: "Name"),
+                    validator: (value) {
+                      if(value == null || value.isEmpty){
+                        return "Enter a name...";
+                      }
+                      return null;
+                    },
+                  ),
+                  DropdownButton<User>(
+                    value: selectedUser,
+                    items: users.map<DropdownMenuItem<User>>((User user) {
+                      return DropdownMenuItem<User>(value: user, child: Text(user.name));
+                    }).toList(),
+                    onChanged: (user) {
+                      setState(() {
+                        selectedUser = user!;
+                      });
+                    }
+                  )
+                ],
               ),
             ),
             Padding(
@@ -293,7 +344,7 @@ class NewChatView extends StatelessWidget {
                         body: jsonEncode({
                           "users": [
                             user.id,
-                            "7370a454-153c-4964-b411-b44194ee3acb"
+                            selectedUser.id
                           ],
                           "name": nameController.text,
                         })
