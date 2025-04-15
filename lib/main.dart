@@ -318,16 +318,22 @@ class _NewChatViewState extends State<NewChatView> {
                       return null;
                     },
                   ),
-                  DropdownButton<User>(
-                    value: selectedUser,
-                    items: users.map<DropdownMenuItem<User>>((User user) {
-                      return DropdownMenuItem<User>(value: user, child: Text(user.name));
-                    }).toList(),
-                    onChanged: (user) {
-                      setState(() {
-                        selectedUser = user!;
-                      });
-                    }
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: FractionallySizedBox(
+                      widthFactor: 1,
+                      child: DropdownButton<User>(
+                        value: selectedUser,
+                        items: users.map<DropdownMenuItem<User>>((User user) {
+                          return DropdownMenuItem<User>(value: user, child: Text(user.name));
+                        }).toList(),
+                        onChanged: (user) {
+                          setState(() {
+                            selectedUser = user!;
+                          });
+                        }
+                      ),
+                    ),
                   )
                 ],
               ),
@@ -459,7 +465,7 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
         _connector?.stream.listen(
           (data) {
             ServerMessage serverJson = ServerMessage.fromJson(jsonDecode(data as String));
-            if(serverJson.chatId != widget.chatId){
+            if(serverJson.chatId == widget.chatId){
               setState(() {
                 queue.add(serverJson);
               });
