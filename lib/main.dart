@@ -11,7 +11,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket/web_socket.dart';
 import 'package:http/http.dart' as http;
 
-String host = "localhost";
+String host = "192.168.2.83";
 late User user;
 String sessionId = "";
 
@@ -458,10 +458,12 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
       try {
         _connector?.stream.listen(
           (data) {
-            ServerMessage serverJson = ServerMessage.fromJson(jsonDecode(data as String));            
-            setState(() {
-              queue.add(serverJson);
-            });
+            ServerMessage serverJson = ServerMessage.fromJson(jsonDecode(data as String));
+            if(serverJson.chatId != widget.chatId){
+              setState(() {
+                queue.add(serverJson);
+              });
+            }
           },
           onDone: () {
             if(disposing) {
