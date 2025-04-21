@@ -392,8 +392,8 @@ class _NewChatViewState extends State<NewChatView> {
                         context: context,
                         builder: (context) {
                           return AlertDialog(
-                            title: Text("Getting Chats Failed"),
-                            content: Text("It seems like we couldn't get your chats. Please contact your administrator."),
+                            title: Text("Creating Chat Failed"),
+                            content: Text("It seems like we couldn't create the chat. Please contact your administrator."),
                             actions: [
                               FilledButton(
                                 onPressed: () {
