@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
+import 'package:noteschat/login.dart';
 import 'package:uuid/v4.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 // ignore: depend_on_referenced_packages
@@ -12,21 +13,15 @@ import 'package:web_socket/web_socket.dart';
 import 'package:http/http.dart' as http;
 
 String host = "192.168.2.83";
-late User user;
-String sessionId = "";
-
-var headers = <String, String>{
-  "Cookie": "sessionId=$sessionId"
-};
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  runApp(MyApp());
+  runApp(NotesChat());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class NotesChat extends StatelessWidget {
+  const NotesChat({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +48,17 @@ class MyApp extends StatelessWidget {
             colorScheme: darkColorScheme,
             useMaterial3: true,
           ),
-          home: ChatSelect(),
+          home: LoginView(
+            onLogin: (context) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ChatSelect()
+                )
+              );
+            },
+            host: host
+          ),
         );
       },
     );
@@ -72,7 +77,7 @@ class _ChatSelectState extends State<ChatSelect> {
   List<User> users = [];
 
   _ChatSelectState() {
-    setup();
+    fetch();
   }
 
   @override
@@ -129,34 +134,6 @@ class _ChatSelectState extends State<ChatSelect> {
     );
   }
 
-  void setup() async {
-    try {
-      while(sessionId.isEmpty){
-        var res = await http.post(Uri.parse('http://$host/api/identity/login'), headers: {
-          "Content-Type": "application/json; charset=UTF-8"
-        }, body: jsonEncode({
-          "name": "Admin",
-          "password": "adminPassword"
-        }));
-        var cookie = res.headers['set-cookie'];
-        sessionId = cookie?.split('sessionId=')[1].split(';')[0] ?? "";
-        await Future.delayed(Duration(seconds: 1));
-      }
-
-      var userRes = await http.get(Uri.parse("http://$host/api/identity/login/valid"), headers: headers);
-      if(userRes.statusCode != 200){
-        print(userRes.statusCode);
-        return;
-      }
-      user = User.fromJson(jsonDecode(userRes.body));
-    }
-    catch (e) {
-      print("Unexpected Exception: $e");
-    }
-
-    fetch();
-  }
-
   void fetch() async {
     List<Future> tasks = [];
     
@@ -169,7 +146,23 @@ class _ChatSelectState extends State<ChatSelect> {
           }
         });
       } else {
-        print(res.statusCode);
+        showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: Text("Getting Chats Failed"),
+              content: Text("It seems like we couldn't get your chats. Please try again later."),
+              actions: [
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: Text("Ok")
+                )
+              ],
+            );
+          }
+        );
       }
     }));
     tasks.add(http.get(Uri.parse("http://$host/api/identity/user"), headers: headers).then((res) {
@@ -184,7 +177,23 @@ class _ChatSelectState extends State<ChatSelect> {
           }
         });
       } else {
-        print(res.statusCode);
+        showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: Text("Getting Contacts Failed"),
+              content: Text("It seems like we couldn't get your contacts. Please try again later."),
+              actions: [
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: Text("Ok")
+                )
+              ],
+            );
+          }
+        );
       }
     }));
 
@@ -268,7 +277,6 @@ class ChatCard extends StatelessWidget {
       ],
     );
   }
-  
 }
 
 class NewChatView extends StatefulWidget {
@@ -356,7 +364,23 @@ class _NewChatViewState extends State<NewChatView> {
                         })
                       );
                       if(res.statusCode != 200) {
-                        print(res.statusCode);
+                        showDialog(
+                          context: context,
+                          builder: (context) {
+                            return AlertDialog(
+                              title: Text("Creating Chat Failed"),
+                              content: Text("It seems like we couldn't create the chat. Please try again later."),
+                              actions: [
+                                FilledButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                  },
+                                  child: Text("Ok")
+                                )
+                              ],
+                            );
+                          }
+                        );
                         return;
                       }
                       var newId = jsonDecode(res.body)["id"];
@@ -364,8 +388,23 @@ class _NewChatViewState extends State<NewChatView> {
                         Chat(id: newId, name: nameController.text)
                       );
                     } catch (e) {
-                      print("Error on Chat creation:");
-                      print(e);
+                      showDialog(
+                        context: context,
+                        builder: (context) {
+                          return AlertDialog(
+                            title: Text("Getting Chats Failed"),
+                            content: Text("It seems like we couldn't get your chats. Please contact your administrator."),
+                            actions: [
+                              FilledButton(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                },
+                                child: Text("Ok")
+                              )
+                            ],
+                          );
+                        }
+                      );
                     }
                   }
                 },
@@ -532,7 +571,23 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
           queue.fetching = false;
         });
       }else{
-        print("Couldn't get Chat: ${res.statusCode}");
+        showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: Text("Getting Chat Failed"),
+              content: Text("It seems like we couldn't get your chat. Please try again later."),
+              actions: [
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: Text("Ok")
+                )
+              ],
+            );
+          }
+        );
       }
     } catch (e) {}
   }
@@ -759,27 +814,6 @@ class ServerMessage {
       'content': content,
       'chatId': chatId,
       'userId': userId,
-    };
-  }
-}
-
-class User {
-  final String id;
-  final String name;
-
-  User({required this.id, required this.name});
-
-  factory User.fromJson(Map<String, dynamic> json) {
-    return User(
-      id: json['id'],
-      name: json['name'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
     };
   }
 }
