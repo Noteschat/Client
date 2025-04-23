@@ -163,11 +163,11 @@ class _LoginViewState extends State<LoginView> {
                         ),
                         TextFormField(
                           controller: passwordController,
-                          obscureText: showPassword,
+                          obscureText: !showPassword,
                           decoration: InputDecoration(
                             labelText: "Password",
                             suffixIcon: IconButton(
-                              icon: Icon( showPassword ? Icons.visibility : Icons.visibility_off ),
+                              icon: Icon( !showPassword ? Icons.visibility : Icons.visibility_off ),
                               onPressed: () {
                                 setState(() {
                                   showPassword = !showPassword;

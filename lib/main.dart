@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
+import 'package:flutter/services.dart';
 import 'package:noteschat/login.dart';
 import 'package:uuid/v4.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -432,6 +433,7 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
   bool disposing = false;
   List<ServerMessage> messages = [];
   bool callBackAdded = false;
+  bool deletingMessage = false;
   late Queue queue;
 
   final TextEditingController _controller = TextEditingController();
@@ -592,6 +594,108 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
     } catch (e) {}
   }
 
+  void onPressed(ServerMessage message) {
+    showDialog(
+      context: context, 
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Message"),
+          content: Text("What do you want to do?"),
+          actions: [
+            OutlinedButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: Text("Cancel")
+            ),
+            IconButton.filled(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: message.content));
+                Navigator.pop(context);
+              },
+              icon: Icon(Icons.copy)
+            ),
+            IconButton.filled(
+              onPressed: () {
+                Navigator.pop(context);
+
+                onDelete(message);
+              },
+              icon: Icon(Icons.delete_outline)
+            ),
+          ],
+        );
+      }
+    );
+  }
+
+  void onDelete(ServerMessage message) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Delete Message"),
+          content: Text("Do you really want to delete this message?"),
+          actions: [
+            OutlinedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                onPressed(message);
+              },
+              child: Text("Cancel")
+            ),
+            FilledButton(
+              onPressed: () async {
+                setState(() {
+                  deletingMessage = true;
+                });
+                try {
+                  var res = await http.delete(Uri.parse("http://$host/api/chat/storage/${widget.chatId}/${message.messageId}"), headers: headers);
+                  if(res.statusCode != 200){
+                    onError("Couldn't delete message!");
+                    return;
+                  }
+                } catch (e) {
+                  onError("Couldn't delete message!\n${e.toString()}");
+                  return;
+                }
+
+                setState(() {
+                  messages.remove(message);
+
+                  deletingMessage = false;
+                });
+
+                Navigator.pop(context);
+              },
+              child: deletingMessage ? Icon(Icons.circle_outlined) : Text("Delete"),
+            ),
+          ],
+        );
+      }
+    );
+  }
+
+  void onError(String message) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Delete Message Error"),
+          content: Text(message),
+          actions: [
+            OutlinedButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: Text("Ok")
+            ),
+          ],
+        );
+      }
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -614,7 +718,7 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    for(var message in messages) Message(data: message)
+                    for(var message in messages) Message(data: message, onPressed: onPressed,)
                   ]
                 ),
               )
@@ -680,42 +784,46 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
 
 class Message extends StatelessWidget {
   final ServerMessage data;
+  final Function(ServerMessage message) onPressed;
 
-  const Message({super.key, required this.data});
+  const Message({super.key, required this.data, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(top: 8.0),
-      child: Row(
-        mainAxisAlignment: data.userId == user.id ? MainAxisAlignment.end : MainAxisAlignment.start,
-        children: [
-          Flexible( // Allows the container to be constrained within available space
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.8, // Maximum width is 80% of screen width
-              ),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.only(
-                    topLeft: data.userId == user.id ? Radius.circular(20) : Radius.circular(0), 
-                    topRight: data.userId == user.id ? Radius.circular(0) : Radius.circular(20), 
-                    bottomLeft: Radius.circular(20), 
-                    bottomRight: Radius.circular(20)
-                  ),
-                  color: data.userId == user.id
-                      ? Theme.of(context).colorScheme.secondaryContainer
-                      : Theme.of(context).colorScheme.tertiaryContainer,
+      child: GestureDetector(
+        onLongPress: () => onPressed(data),
+        child: Row(
+          mainAxisAlignment: data.userId == user.id ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            Flexible( // Allows the container to be constrained within available space
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.8, // Maximum width is 80% of screen width
                 ),
-                padding: const EdgeInsets.all(16.0), // Adds padding around the text
-                child: Text(
-                  data.content,
-                  textAlign: TextAlign.left,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.only(
+                      topLeft: data.userId == user.id ? Radius.circular(20) : Radius.circular(0), 
+                      topRight: data.userId == user.id ? Radius.circular(0) : Radius.circular(20), 
+                      bottomLeft: Radius.circular(20), 
+                      bottomRight: Radius.circular(20)
+                    ),
+                    color: data.userId == user.id
+                        ? Theme.of(context).colorScheme.secondaryContainer
+                        : Theme.of(context).colorScheme.tertiaryContainer,
+                  ),
+                  padding: const EdgeInsets.all(16.0), // Adds padding around the text
+                  child: Text(
+                    data.content,
+                    textAlign: TextAlign.left,
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       )
     );
   }
