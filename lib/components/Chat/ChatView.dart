@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:noteschat/components/Chat/ChatMessage.dart';
 import 'package:noteschat/components/Chat/MessageQueue.dart';
+import 'package:noteschat/components/NotesSelect/NotesSelect.dart';
 import 'package:noteschat/dtos/ServerMessage.dart';
 import 'package:noteschat/dtos/StorageMessage.dart';
 import 'package:noteschat/login.dart';
@@ -29,6 +30,7 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
   List<ServerMessage> messages = [];
   bool callBackAdded = false;
   bool deletingMessage = false;
+  bool addingNote = false;
   late Queue queue;
 
   final TextEditingController _controller = TextEditingController();
@@ -205,6 +207,14 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
             ),
             IconButton.filled(
               onPressed: () {
+                Navigator.pop(context);
+
+                onAddNote(message);
+              },
+              icon: Icon(Icons.note_add_outlined)
+            ),
+            IconButton.filled(
+              onPressed: () {
                 Clipboard.setData(ClipboardData(text: message.content));
                 Navigator.pop(context);
               },
@@ -217,6 +227,65 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
                 onDelete(message);
               },
               icon: Icon(Icons.delete_outline)
+            ),
+          ],
+        );
+      }
+    );
+  }
+
+  void onAddNote(ServerMessage message) {
+    final TextEditingController _noteNameController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Save as Note"),
+          content: TextField(
+            controller: _noteNameController,
+            decoration: InputDecoration(
+              hintText: "Note name"
+            ),
+          ),
+          actions: [
+            OutlinedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                onPressed(message);
+              },
+              child: Text("Cancel")
+            ),
+            FilledButton(
+              onPressed: () async {
+                setState(() {
+                  addingNote = true;
+                });
+                try {
+                  var res = await http.post(
+                    Uri.parse("http://${widget.host}/api/notes/storage/${widget.chatId}"),
+                    headers: headers,
+                    body: jsonEncode({
+                      "name": _noteNameController.text,
+                      "content": message.content
+                    })
+                  );
+                  if(res.statusCode != 200){
+                    onError("Couldn't save message as note!");
+                    return;
+                  }
+                } catch (e) {
+                  onError("Couldn't save message as note!\n${e.toString()}");
+                  return;
+                }
+
+                setState(() {
+                  addingNote = false;
+                });
+
+                Navigator.pop(context);
+              },
+              child: addingNote ? Icon(Icons.circle_outlined) : Text("Save"),
             ),
           ],
         );
@@ -302,6 +371,16 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
             padding: EdgeInsets.only(right: 24.0),
             child: Icon(connected ? Icons.wifi : Icons.wifi_off)
           ),
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => NotesSelect(chatId: widget.chatId, host: widget.host)
+                )
+              );
+            },
+            icon: Icon(Icons.library_books_outlined)
+          )
         ],
       ),
       body: Column(

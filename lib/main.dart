@@ -4,7 +4,7 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'package:noteschat/components/ChatSelect/ChatSelect.dart';
 import 'package:noteschat/login.dart';
 
-String host = "192.168.2.83";
+String host = "localhost";
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
