@@ -368,19 +368,22 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
         title: Text("Chat"),
         actions: [
           Padding(
-            padding: EdgeInsets.only(right: 24.0),
-            child: Icon(connected ? Icons.wifi : Icons.wifi_off)
+            padding: const EdgeInsets.only(right: 8.0),
+            child: Icon(connected ? Icons.wifi : Icons.wifi_off),
           ),
-          IconButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => NotesSelect(chatId: widget.chatId, host: widget.host)
-                )
-              );
-            },
-            icon: Icon(Icons.library_books_outlined)
-          )
+          Padding(
+            padding: EdgeInsets.only(right: 8.0),
+            child: IconButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => NotesSelect(chatId: widget.chatId, host: widget.host)
+                    )
+                  );
+                },
+                icon: Icon(Icons.library_books_outlined)
+              )
+          ),
         ],
       ),
       body: Column(

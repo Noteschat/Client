@@ -33,7 +33,7 @@ class _ChatSelectState extends State<ChatSelect> {
         title: Text("Chats"),
         actions: [
           Padding(
-            padding: EdgeInsets.only(right: 24.0),
+            padding: EdgeInsets.only(right: 8.0),
             child: IconButton(
               icon: Icon(users.isEmpty ? Icons.circle_outlined : Icons.add),
               onPressed: users.isEmpty ? null : () async {

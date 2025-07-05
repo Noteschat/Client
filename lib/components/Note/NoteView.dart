@@ -18,6 +18,7 @@ class NoteView extends StatefulWidget {
 class _NoteViewState extends State<NoteView> {
   late Note note;
   bool loadingNote = true;
+  final TextEditingController _noteEditController = TextEditingController();
 
   _NoteViewState(AllNote allNote, String chatId, String host) {
     fetch(allNote, chatId, host);
@@ -31,6 +32,7 @@ class _NoteViewState extends State<NoteView> {
         var noteRes = jsonDecode(res.body);
         setState(() {
           note = Note.fromJson(noteRes);
+          _noteEditController.text = note.content;
 
           loadingNote = false;
         });
@@ -62,14 +64,95 @@ class _NoteViewState extends State<NoteView> {
     await Future.wait(tasks);
   }
 
+  void updateNote() async {
+    setState(() {
+      note = Note(
+        id: note.id,
+        name: note.name, 
+        chatId: note.chatId, 
+        content: _noteEditController.text
+      );
+    });
+
+    var change = http.put(
+      Uri.parse("http://${widget.host}/api/notes/storage/${widget.chatId}/${note.id}"),
+      headers: headers,
+      body: jsonEncode(note)
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Saving Note"),
+          content: Text("Saving Note..."),
+        );
+      },
+    );
+
+    var res = (await Future.wait([change]))[0];
+    Navigator.pop(context);
+    if(res.statusCode != 200) {
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: Text("Saving Note Failed"),
+            content: Text("It seems like we couldn't save your note. Please try again later."),
+            actions: [
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: Text("Ok")
+              )
+            ],
+          );
+        }
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceBright,
         title: loadingNote ? Text(widget.allNote.name) : Text(note.name),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: IconButton(
+              onPressed: loadingNote || note.content == _noteEditController.text ? null : () async {
+                updateNote();
+              },
+              icon: Icon(Icons.save_outlined),
+            ),
+          ),
+        ],
       ),
-      body: loadingNote ? Text("Loading Note...") : Text(note.content),
+      body: loadingNote ? Center(
+        child: Text("Loading Note...")
+       ) : Padding(
+        padding: EdgeInsets.all(8.0),
+        child: TextField(
+          controller: _noteEditController,
+          minLines: null,
+          maxLines: null,
+          expands: true,
+          textInputAction: TextInputAction.newline,
+          keyboardType: TextInputType.multiline,
+          decoration: const InputDecoration(
+            border: InputBorder.none,
+          ),
+          style: TextStyle(
+            fontSize: 14.0,
+          ),
+          onChanged: (value) {
+            setState(() {});
+          },
+        )
+      ),
     );
   }
 }
