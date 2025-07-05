@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:noteschat/components/NewNote/NewNote.dart';
+import 'package:noteschat/components/Note/NoteView.dart';
 import 'package:noteschat/components/NotesSelect/NoteCard.dart';
 import 'package:noteschat/dtos/Note.dart';
 import 'package:noteschat/login.dart';
@@ -69,6 +71,33 @@ class _NotesSelectState extends State<NotesSelect> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceBright,
         title: Text("Notes"),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: IconButton(
+              onPressed: () async {
+                AllNote? newNote = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => NewNoteView(host: widget.host, chatId: widget.chatId,)
+                  )
+                );
+                if(newNote != null) {
+                  setState(() {
+                    notes.add(newNote);
+                  });
+            
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => NoteView(chatId: widget.chatId, host: widget.host, allNote: newNote,)
+                    )
+                  );
+                }
+              },
+              icon: Icon(Icons.add)
+            ),
+          )
+        ],
       ),
       body: notes.length <= 0 ? Center(
         child: loadingNotes ? Text("Loading Notes for this Chat") : Text("No Notes in this Chat"),
