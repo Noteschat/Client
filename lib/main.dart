@@ -1,4 +1,3 @@
-// ignore_for_file: avoid_print
 import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:noteschat/components/ChatSelect/ChatSelect.dart';
@@ -44,12 +43,10 @@ class NotesChat extends StatelessWidget {
             onLogin: (context) {
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => ChatSelect(host: host,)
-                )
+                MaterialPageRoute(builder: (context) => ChatSelect(host: host)),
               );
             },
-            host: host
+            host: host,
           ),
         );
       },
