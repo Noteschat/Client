@@ -36,26 +36,34 @@ class _ChatSelectState extends State<ChatSelect> {
             padding: EdgeInsets.only(right: 8.0),
             child: IconButton(
               icon: Icon(users.isEmpty ? Icons.circle_outlined : Icons.add),
-              onPressed: users.isEmpty ? null : () async {
-                Chat? newChat = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => NewChatView(users: users, host: widget.host,)
-                  )
-                );
-                if(newChat != null) {
-                  setState(() {
-                    chats.add(newChat);
-                  });
+              onPressed:
+                  users.isEmpty
+                      ? null
+                      : () async {
+                        Chat? newChat = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => NewChatView(host: widget.host),
+                          ),
+                        );
+                        if (newChat != null) {
+                          setState(() {
+                            chats.add(newChat);
+                          });
 
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => ChatView(chatId: newChat.id, host: widget.host)
-                    )
-                  );
-                }
-              },
-            )
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder:
+                                  (context) => ChatView(
+                                    chatId: newChat.id,
+                                    host: widget.host,
+                                  ),
+                            ),
+                          );
+                        }
+                      },
+            ),
           ),
         ],
       ),
@@ -64,15 +72,16 @@ class _ChatSelectState extends State<ChatSelect> {
           padding: const EdgeInsets.only(left: 8.0, right: 8.0),
           child: Column(
             children: [
-              for(var chat in chats) ChatCard(
-                chat: chat,
-                removeChat: () {
-                  setState(() {
-                    chats.remove(chat);
-                  });
-                },
-                host: widget.host,
-              )
+              for (var chat in chats)
+                ChatCard(
+                  chat: chat,
+                  removeChat: () {
+                    setState(() {
+                      chats.remove(chat);
+                    });
+                  },
+                  host: widget.host,
+                ),
             ],
           ),
         ),
@@ -82,66 +91,78 @@ class _ChatSelectState extends State<ChatSelect> {
 
   void fetch(String host) async {
     List<Future> tasks = [];
-    
-    tasks.add(http.get(Uri.parse("http://$host/api/chat/storage"), headers: headers).then((res) {
-      if(res.statusCode == 200) {
-        var chatsRes = jsonDecode(res.body)["chats"];
-        setState(() {
-          for(var chat in chatsRes){
-            chats.add(Chat.fromJson(chat));
-          }
-        });
-      } else {
-        showDialog(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: Text("Getting Chats Failed"),
-              content: Text("It seems like we couldn't get your chats. Please try again later."),
-              actions: [
-                FilledButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: Text("Ok")
-                )
-              ],
-            );
-          }
-        );
-      }
-    }));
-    tasks.add(http.get(Uri.parse("http://$host/api/identity/user"), headers: headers).then((res) {
-      if(res.statusCode == 200) {
-        var usersRes = jsonDecode(res.body)["users"];
-        setState(() {
-          for(var userJson in usersRes){
-            var contact = User.fromJson(userJson);
-            if(contact.id != user.id) {
-              users.add(contact);
+
+    tasks.add(
+      http.get(Uri.parse("http://$host/api/chat/storage"), headers: headers).then((
+        res,
+      ) {
+        if (res.statusCode == 200) {
+          var chatsRes = jsonDecode(res.body)["chats"];
+          setState(() {
+            for (var chat in chatsRes) {
+              chats.add(Chat.fromJson(chat));
             }
-          }
-        });
-      } else {
-        showDialog(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: Text("Getting Contacts Failed"),
-              content: Text("It seems like we couldn't get your contacts. Please try again later."),
-              actions: [
-                FilledButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: Text("Ok")
-                )
-              ],
-            );
-          }
-        );
-      }
-    }));
+          });
+        } else {
+          showDialog(
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                title: Text("Getting Chats Failed"),
+                content: Text(
+                  "It seems like we couldn't get your chats. Please try again later.",
+                ),
+                actions: [
+                  FilledButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: Text("Ok"),
+                  ),
+                ],
+              );
+            },
+          );
+        }
+      }),
+    );
+    tasks.add(
+      http.get(Uri.parse("http://$host/api/identity/user"), headers: headers).then((
+        res,
+      ) {
+        if (res.statusCode == 200) {
+          var usersRes = jsonDecode(res.body)["users"];
+          setState(() {
+            for (var userJson in usersRes) {
+              var contact = User.fromJson(userJson);
+              if (contact.id != user.id) {
+                users.add(contact);
+              }
+            }
+          });
+        } else {
+          showDialog(
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                title: Text("Getting Contacts Failed"),
+                content: Text(
+                  "It seems like we couldn't get your contacts. Please try again later.",
+                ),
+                actions: [
+                  FilledButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: Text("Ok"),
+                  ),
+                ],
+              );
+            },
+          );
+        }
+      }),
+    );
 
     await Future.wait(tasks);
   }
