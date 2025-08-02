@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:noteschat/components/AddContact/AddContact.dart';
 import 'package:noteschat/dtos/Chat.dart';
 import 'package:noteschat/login.dart';
 
@@ -95,6 +96,29 @@ class _NewChatViewState extends State<NewChatView> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceBright,
         title: const Text("Start a new Chat"),
+        actions: [
+          Padding(
+            padding: EdgeInsets.only(right: 8.0),
+            child: IconButton(
+              onPressed: () async {
+                User? newContact = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AddContactView(host: widget.host),
+                  ),
+                );
+
+                if (newContact != null && !users.contains(newContact)) {
+                  setState(() {
+                    users.add(newContact);
+                  });
+                  selectedUser = newContact;
+                }
+              },
+              icon: Icon(Icons.person_add),
+            ),
+          ),
+        ],
       ),
       body:
           selectedUser != null

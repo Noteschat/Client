@@ -4,16 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 String sessionId = "";
-var headers = <String, String>{
-  "Cookie": "sessionId=$sessionId"
-};
+var headers = <String, String>{"Cookie": "sessionId=$sessionId"};
 
 late User user;
 
 class LoginView extends StatefulWidget {
   final Function(BuildContext context) onLogin;
   final String host;
-
 
   LoginView({super.key, required this.onLogin, required this.host});
 
@@ -40,21 +37,23 @@ class _LoginViewState extends State<LoginView> {
         Uri.parse("http://${widget.host}/api/identity/login"),
         body: jsonEncode({
           "name": nameController.text,
-          "password": passwordController.text
-        })
+          "password": passwordController.text,
+        }),
       );
-      if(res.statusCode != 200) {
+      if (res.statusCode != 200) {
         showDialog(
           context: context,
           builder: (context) {
             return AlertDialog(
               title: Text("Login Failed"),
-              content: Text("Your Username and/or Password are incorrect. Please check them and try again."),
+              content: Text(
+                "Your Username and/or Password are incorrect. Please check them and try again.",
+              ),
               actions: [
                 FilledButton(
                   onPressed: Navigator.of(context).pop,
-                  child: Text("Ok")
-                )
+                  child: Text("Ok"),
+                ),
               ],
             );
           },
@@ -69,12 +68,14 @@ class _LoginViewState extends State<LoginView> {
         builder: (context) {
           return AlertDialog(
             title: Text("Login Error"),
-            content: Text("Looks like we couldn't log you in! Please try again later.\n$e"),
+            content: Text(
+              "Looks like we couldn't log you in! Please try again later.\n$e",
+            ),
             actions: [
               FilledButton(
                 onPressed: Navigator.of(context).pop,
-                child: Text("Ok")
-              )
+                child: Text("Ok"),
+              ),
             ],
           );
         },
@@ -85,20 +86,22 @@ class _LoginViewState extends State<LoginView> {
     try {
       var userRes = await http.get(
         Uri.parse("http://${widget.host}/api/identity/login/valid"),
-        headers: headers
+        headers: headers,
       );
-      if(userRes.statusCode != 200){
+      if (userRes.statusCode != 200) {
         showDialog(
           context: context,
           builder: (context) {
             return AlertDialog(
               title: Text("Login Failed"),
-              content: Text("Looks like your login data was correct, but we couldn't fetch your user data! Please contact your administrator."),
+              content: Text(
+                "Looks like your login data was correct, but we couldn't fetch your user data! Please contact your administrator.",
+              ),
               actions: [
                 FilledButton(
                   onPressed: Navigator.of(context).pop,
-                  child: Text("Ok")
-                )
+                  child: Text("Ok"),
+                ),
               ],
             );
           },
@@ -113,12 +116,14 @@ class _LoginViewState extends State<LoginView> {
         builder: (context) {
           return AlertDialog(
             title: Text("Login Error"),
-            content: Text("Looks like we couldn't fetch your user data! Please try again later.\n$e"),
+            content: Text(
+              "Looks like we couldn't fetch your user data! Please try again later.\n$e",
+            ),
             actions: [
               FilledButton(
                 onPressed: Navigator.of(context).pop,
-                child: Text("Ok")
-              )
+                child: Text("Ok"),
+              ),
             ],
           );
         },
@@ -136,16 +141,14 @@ class _LoginViewState extends State<LoginView> {
           padding: const EdgeInsets.only(left: 16.0, right: 16.0),
           child: Center(
             child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: 350.0,
-              ),
+              constraints: BoxConstraints(maxWidth: 350.0),
               child: Column(
                 children: [
                   Spacer(),
                   Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16.0),
-                      color: Theme.of(context).colorScheme.surfaceContainer
+                      color: Theme.of(context).colorScheme.surfaceContainer,
                     ),
                     padding: EdgeInsets.all(16.0),
                     child: Column(
@@ -155,7 +158,7 @@ class _LoginViewState extends State<LoginView> {
                           controller: nameController,
                           decoration: const InputDecoration(labelText: "Name"),
                           validator: (value) {
-                            if(value == null || value.isEmpty){
+                            if (value == null || value.isEmpty) {
                               return "Enter your username...";
                             }
                             return null;
@@ -167,7 +170,11 @@ class _LoginViewState extends State<LoginView> {
                           decoration: InputDecoration(
                             labelText: "Password",
                             suffixIcon: IconButton(
-                              icon: Icon( !showPassword ? Icons.visibility : Icons.visibility_off ),
+                              icon: Icon(
+                                !showPassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                              ),
                               onPressed: () {
                                 setState(() {
                                   showPassword = !showPassword;
@@ -176,7 +183,7 @@ class _LoginViewState extends State<LoginView> {
                             ),
                           ),
                           validator: (value) {
-                            if(value == null || value.isEmpty){
+                            if (value == null || value.isEmpty) {
                               return "Enter your password...";
                             }
                             return null;
@@ -191,15 +198,15 @@ class _LoginViewState extends State<LoginView> {
                                 padding: const EdgeInsets.only(right: 16.0),
                                 child: OutlinedButton(
                                   onPressed: null,
-                                  child: Text("Register")
+                                  child: Text("Register"),
                                 ),
                               ),
                               FilledButton(
                                 onPressed: () {
                                   login(context);
                                 },
-                                child: Text("Login")
-                              )
+                                child: Text("Login"),
+                              ),
                             ],
                           ),
                         ),
@@ -212,7 +219,7 @@ class _LoginViewState extends State<LoginView> {
             ),
           ),
         ),
-      )
+      ),
     );
   }
 }
@@ -224,16 +231,19 @@ class User {
   User({required this.id, required this.name});
 
   factory User.fromJson(Map<String, dynamic> json) {
-    return User(
-      id: json['id'],
-      name: json['name'],
-    );
+    return User(id: json['id'], name: json['name']);
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-    };
+    return {'id': id, 'name': name};
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is User && other.id == id && other.name == name;
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name);
 }

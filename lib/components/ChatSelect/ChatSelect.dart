@@ -31,41 +31,50 @@ class _ChatSelectState extends State<ChatSelect> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceBright,
         title: Text("Chats"),
-        actions: [
-          Padding(
-            padding: EdgeInsets.only(right: 8.0),
-            child: IconButton(
-              icon: Icon(users.isEmpty ? Icons.circle_outlined : Icons.add),
-              onPressed:
-                  users.isEmpty
-                      ? null
-                      : () async {
-                        Chat? newChat = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => NewChatView(host: widget.host),
-                          ),
-                        );
-                        if (newChat != null) {
-                          setState(() {
-                            chats.add(newChat);
-                          });
-
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder:
-                                  (context) => ChatView(
-                                    chatId: newChat.id,
-                                    host: widget.host,
+        actions:
+            users.isEmpty
+                ? [
+                  Padding(
+                    padding: EdgeInsets.only(right: 8.0),
+                    child: Icon(Icons.circle_outlined),
+                  ),
+                ]
+                : [
+                  Padding(
+                    padding: EdgeInsets.only(right: 8.0),
+                    child: IconButton(
+                      icon: Icon(Icons.add),
+                      onPressed:
+                          users.isEmpty
+                              ? null
+                              : () async {
+                                Chat? newChat = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) =>
+                                            NewChatView(host: widget.host),
                                   ),
-                            ),
-                          );
-                        }
-                      },
-            ),
-          ),
-        ],
+                                );
+                                if (newChat != null) {
+                                  setState(() {
+                                    chats.add(newChat);
+                                  });
+
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => ChatView(
+                                            chatId: newChat.id,
+                                            host: widget.host,
+                                          ),
+                                    ),
+                                  );
+                                }
+                              },
+                    ),
+                  ),
+                ],
       ),
       body: SingleChildScrollView(
         child: Padding(
