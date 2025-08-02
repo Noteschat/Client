@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:noteschat/components/NotesSelect/NotesSelect.dart';
 import 'package:noteschat/components/NotesSelect/TagCard.dart';
 import 'package:noteschat/dtos/Note.dart';
 import 'package:noteschat/login.dart';
@@ -32,8 +33,10 @@ class _NotesTagsViewState extends State<NotesTagsView> {
   Note? note;
   bool failed = false;
   List<String> selectedTags = [];
+  String filterValue = "";
 
   _NotesTagsViewState(String host, String chatId, AllNote allNote) {
+    filterController.addListener(onFilterChanged);
     fetch(host, chatId, allNote);
   }
 
@@ -66,16 +69,20 @@ class _NotesTagsViewState extends State<NotesTagsView> {
   List<String> unselectedTags() {
     return widget.tags.where((tag) {
       return !selectedTags.contains(tag) &&
-          (filterController.text.isEmpty ||
-              filterController.text.contains(tag));
+          (filterValue.isEmpty || tag.contains(filterValue));
     }).toList();
   }
 
   List<String> filteredSelectedTags() {
     return selectedTags.where((tag) {
-      return filterController.text.isEmpty ||
-          filterController.text.contains(tag);
+      return filterValue.isEmpty || tag.contains(filterValue);
     }).toList();
+  }
+
+  void onFilterChanged() {
+    setState(() {
+      filterValue = filterController.text;
+    });
   }
 
   @override
@@ -109,9 +116,14 @@ class _NotesTagsViewState extends State<NotesTagsView> {
                               labelText: "Search for Tag...",
                             ),
                             onSubmitted: (value) {
-                              setState(() {
-                                selectedTags.add(value);
-                              });
+                              if (value.isNotEmpty &&
+                                  value != resetNotesFilterValue) {
+                                setState(() {
+                                  selectedTags.add(value);
+                                  print(selectedTags.length);
+                                });
+                              }
+                              filterController.text = "";
                             },
                           ),
                           Padding(
@@ -133,9 +145,6 @@ class _NotesTagsViewState extends State<NotesTagsView> {
                                                   selectTag: () {
                                                     setState(() {
                                                       selectedTags.remove(tag);
-                                                      print(
-                                                        selectedTags.length,
-                                                      );
                                                     });
                                                   },
                                                   showDivider: false,
@@ -149,7 +158,6 @@ class _NotesTagsViewState extends State<NotesTagsView> {
                                       selectTag: () {
                                         setState(() {
                                           selectedTags.add(tag);
-                                          print(selectedTags.length);
                                         });
                                       },
                                       showDivider: false,

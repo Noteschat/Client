@@ -9,6 +9,7 @@ class NoteCard extends StatelessWidget {
   final AllNote note;
   final List<String> tags;
   final Function removeNote;
+  final Function(List<String> tags) onTagsChanged;
   final String host;
   final String chatId;
 
@@ -19,6 +20,7 @@ class NoteCard extends StatelessWidget {
     required this.tags,
     required this.removeNote,
     required this.host,
+    required this.onTagsChanged,
   });
 
   @override
@@ -84,8 +86,8 @@ class NoteCard extends StatelessWidget {
     );
   }
 
-  void tagsDialog(BuildContext context) {
-    Navigator.push(
+  void tagsDialog(BuildContext context) async {
+    Note? changed = await Navigator.push(
       context,
       MaterialPageRoute(
         builder:
@@ -97,6 +99,10 @@ class NoteCard extends StatelessWidget {
             ),
       ),
     );
+    if (changed == null) {
+      return;
+    }
+    onTagsChanged(changed.tags);
   }
 
   void deleteDialog(BuildContext context) {

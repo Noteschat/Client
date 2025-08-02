@@ -43,10 +43,17 @@ class Note {
 class AllNote {
   final String name;
   final String id;
+  final List<String> tags;
 
-  AllNote({required this.name, required this.id});
+  AllNote({required this.name, required this.id, this.tags = const []});
 
   factory AllNote.fromJson(Map<String, dynamic> json) {
-    return AllNote(name: json['name'], id: json['id']);
+    List<String> tags = [];
+    if (json['tags'] != null) {
+      for (String tag in json['tags']) {
+        tags.add(tag);
+      }
+    }
+    return AllNote(name: json['name'], id: json['id'], tags: tags);
   }
 }

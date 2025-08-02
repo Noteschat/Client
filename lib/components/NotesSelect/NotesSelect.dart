@@ -16,10 +16,14 @@ class NotesSelect extends StatefulWidget {
   State<NotesSelect> createState() => _NotesSelectState(host, chatId);
 }
 
+String resetNotesFilterValue = "Filter by tag...";
+
 class _NotesSelectState extends State<NotesSelect> {
   List<AllNote> notes = [];
   List<String> tags = [];
   bool loadingNotes = true;
+
+  String selectedTag = "";
 
   _NotesSelectState(String host, String chatId) {
     fetch(host, chatId);
@@ -83,6 +87,28 @@ class _NotesSelectState extends State<NotesSelect> {
     await Future.wait(tasks);
   }
 
+  List<DropdownMenuItem<String>> tagOptions() {
+    List<String> options = [];
+    options.add(resetNotesFilterValue);
+    options.addAll(tags);
+    var mapped =
+        options.map<DropdownMenuItem<String>>((tag) {
+          return DropdownMenuItem<String>(
+            key: Key(tag),
+            value: tag,
+            child: Text(tag),
+          );
+        }).toList();
+    print(mapped.length);
+    return mapped;
+  }
+
+  List<AllNote> filteredNotes() {
+    return notes.where((note) {
+      return selectedTag.isEmpty || note.tags.contains(selectedTag);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -134,21 +160,63 @@ class _NotesSelectState extends State<NotesSelect> {
                         ? Text("Loading Notes for this Chat")
                         : Text("No Notes in this Chat"),
               )
-              : Column(
-                children: [
-                  for (var note in notes)
-                    NoteCard(
-                      note: note,
-                      tags: tags,
-                      removeNote: () {
-                        setState(() {
-                          notes.remove(note);
-                        });
-                      },
-                      host: widget.host,
-                      chatId: widget.chatId,
-                    ),
-                ],
+              : Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  children: [
+                    tags.isNotEmpty
+                        ? FractionallySizedBox(
+                          widthFactor: 1,
+                          child: DropdownButton<String>(
+                            value:
+                                selectedTag.isNotEmpty
+                                    ? selectedTag
+                                    : resetNotesFilterValue,
+                            items: tagOptions(),
+                            onChanged: (value) {
+                              if (value == resetNotesFilterValue) {
+                                setState(() {
+                                  selectedTag = "";
+                                });
+                                return;
+                              }
+                              setState(() {
+                                selectedTag = value ?? resetNotesFilterValue;
+                              });
+                            },
+                          ),
+                        )
+                        : Container(),
+                    for (var note in filteredNotes())
+                      NoteCard(
+                        note: note,
+                        tags: tags,
+                        removeNote: () {
+                          setState(() {
+                            notes.remove(note);
+                          });
+                        },
+                        host: widget.host,
+                        chatId: widget.chatId,
+                        onTagsChanged: (updatedTags) {
+                          var removed = note.tags.where((tag) {
+                            return !updatedTags.contains(tag);
+                          });
+                          var added = updatedTags.where((tag) {
+                            return !note.tags.contains(tag);
+                          });
+                          setState(() {
+                            for (var tag in removed) {
+                              tags.remove(tag);
+                            }
+                            tags.addAll(added);
+                            note.tags.clear();
+                            note.tags.addAll(tags);
+                          });
+                        },
+                      ),
+                  ],
+                ),
               ),
     );
   }
