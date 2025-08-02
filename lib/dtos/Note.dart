@@ -3,15 +3,29 @@ class Note {
   final String name;
   final String content;
   final String chatId;
+  final List<String> tags;
 
-  Note({required this.id, required this.name, required this.chatId, required this.content});
+  Note({
+    required this.id,
+    required this.name,
+    required this.chatId,
+    required this.content,
+    this.tags = const [],
+  });
 
   factory Note.fromJson(Map<String, dynamic> json) {
+    List<String> tags = [];
+    if (json['tags'] != null) {
+      for (String tag in json['tags']) {
+        tags.add(tag);
+      }
+    }
     return Note(
       id: json['id'],
       name: json['name'],
       content: json['content'],
-      chatId: json['chatId']
+      chatId: json['chatId'],
+      tags: tags,
     );
   }
 
@@ -20,7 +34,8 @@ class Note {
       'id': id,
       'name': name,
       'chatId': chatId,
-      'content': content
+      'content': content,
+      'tags': tags,
     };
   }
 }
@@ -32,9 +47,6 @@ class AllNote {
   AllNote({required this.name, required this.id});
 
   factory AllNote.fromJson(Map<String, dynamic> json) {
-    return AllNote(
-      name: json['name'],
-      id: json['id'],
-    );
+    return AllNote(name: json['name'], id: json['id']);
   }
 }

@@ -217,28 +217,28 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
               },
               child: Text("Cancel"),
             ),
-            IconButton.filled(
+            FilledButton(
               onPressed: () {
                 Navigator.pop(context);
 
                 onAddNote(message);
               },
-              icon: Icon(Icons.note_add_outlined),
+              child: Icon(Icons.note_add_outlined),
             ),
-            IconButton.filled(
+            FilledButton(
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: message.content));
                 Navigator.pop(context);
               },
-              icon: Icon(Icons.copy),
+              child: Icon(Icons.copy),
             ),
-            IconButton.filled(
+            FilledButton(
               onPressed: () {
                 Navigator.pop(context);
 
                 onDelete(message);
               },
-              icon: Icon(Icons.delete_outline),
+              child: Icon(Icons.delete_outline),
             ),
           ],
         );

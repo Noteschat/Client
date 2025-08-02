@@ -18,6 +18,7 @@ class NotesSelect extends StatefulWidget {
 
 class _NotesSelectState extends State<NotesSelect> {
   List<AllNote> notes = [];
+  List<String> tags = [];
   bool loadingNotes = true;
 
   _NotesSelectState(String host, String chatId) {
@@ -26,41 +27,58 @@ class _NotesSelectState extends State<NotesSelect> {
 
   void fetch(String host, String chatId) async {
     List<Future> tasks = [];
-    
-    tasks.add(http.get(Uri.parse("http://$host/api/notes/storage/$chatId"), headers: headers).then((res) {
-      if(res.statusCode == 200) {
-        var notesRes = jsonDecode(res.body)["notes"];
-        setState(() {
-          for(var note in notesRes){
-            notes.add(AllNote.fromJson(note));
-          }
 
-          loadingNotes = false;
-        });
-      } else {
-        setState(() {
-          loadingNotes = false;
-        });
+    tasks.add(
+      http
+          .get(
+            Uri.parse("http://$host/api/notes/storage/$chatId"),
+            headers: headers,
+          )
+          .then((res) {
+            if (res.statusCode == 200) {
+              var tagsRes = jsonDecode(res.body)["tags"];
+              setState(() {
+                for (String tag in tagsRes) {
+                  tags.add(tag);
+                }
+              });
+              var notesRes = jsonDecode(res.body)["notes"];
+              setState(() {
+                for (var note in notesRes) {
+                  notes.add(AllNote.fromJson(note));
+                }
 
-        showDialog(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: Text("Getting Notes Failed"),
-              content: Text("It seems like we couldn't get your notes. Please try again later."),
-              actions: [
-                FilledButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: Text("Ok")
-                )
-              ],
-            );
-          }
-        );
-      }
-    }));
+                loadingNotes = false;
+              });
+            } else {
+              print(res.body);
+
+              setState(() {
+                loadingNotes = false;
+              });
+
+              showDialog(
+                context: context,
+                builder: (context) {
+                  return AlertDialog(
+                    title: Text("Getting Notes Failed"),
+                    content: Text(
+                      "It seems like we couldn't get your notes. Please try again later.",
+                    ),
+                    actions: [
+                      FilledButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        child: Text("Ok"),
+                      ),
+                    ],
+                  );
+                },
+              );
+            }
+          }),
+    );
 
     await Future.wait(tasks);
   }
@@ -79,42 +97,59 @@ class _NotesSelectState extends State<NotesSelect> {
                 AllNote? newNote = await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => NewNoteView(host: widget.host, chatId: widget.chatId,)
-                  )
+                    builder:
+                        (context) => NewNoteView(
+                          host: widget.host,
+                          chatId: widget.chatId,
+                        ),
+                  ),
                 );
-                if(newNote != null) {
+                if (newNote != null) {
                   setState(() {
                     notes.add(newNote);
                   });
-            
+
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (context) => NoteView(chatId: widget.chatId, host: widget.host, allNote: newNote,)
-                    )
+                      builder:
+                          (context) => NoteView(
+                            chatId: widget.chatId,
+                            host: widget.host,
+                            allNote: newNote,
+                          ),
+                    ),
                   );
                 }
               },
-              icon: Icon(Icons.add)
+              icon: Icon(Icons.add),
             ),
-          )
+          ),
         ],
       ),
-      body: notes.length <= 0 ? Center(
-        child: loadingNotes ? Text("Loading Notes for this Chat") : Text("No Notes in this Chat"),
-      ) : Column(
-        children: [
-          for(var note in notes) NoteCard(
-            note: note,
-            removeNote: () {
-              setState(() {
-                notes.remove(note);
-              });
-            },
-            host: widget.host,
-            chatId: widget.chatId,
-          )
-        ]
-      ),
+      body:
+          notes.length <= 0
+              ? Center(
+                child:
+                    loadingNotes
+                        ? Text("Loading Notes for this Chat")
+                        : Text("No Notes in this Chat"),
+              )
+              : Column(
+                children: [
+                  for (var note in notes)
+                    NoteCard(
+                      note: note,
+                      tags: tags,
+                      removeNote: () {
+                        setState(() {
+                          notes.remove(note);
+                        });
+                      },
+                      host: widget.host,
+                      chatId: widget.chatId,
+                    ),
+                ],
+              ),
     );
   }
 }
