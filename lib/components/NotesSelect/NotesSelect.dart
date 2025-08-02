@@ -99,7 +99,6 @@ class _NotesSelectState extends State<NotesSelect> {
             child: Text(tag),
           );
         }).toList();
-    print(mapped.length);
     return mapped;
   }
 
