@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:noteschat/components/AddContact/AddContact.dart';
+import 'package:noteschat/components/AddContact/UserCard.dart';
 import 'package:noteschat/dtos/Chat.dart';
 import 'package:noteschat/login.dart';
 
@@ -19,13 +20,16 @@ class NewChatView extends StatefulWidget {
 class _NewChatViewState extends State<NewChatView> {
   final formKey = GlobalKey<FormState>();
   final nameController = TextEditingController();
+  final filterController = TextEditingController();
 
-  User? selectedUser;
+  List<User> selectedContacts = [];
   bool hasContacts = true;
-  List<User> users = [];
+  List<User> contacts = [];
+  String searchTerm = "";
 
   _NewChatViewState(String host) {
     fetch(host);
+    filterController.addListener(searchContacts);
   }
 
   void fetch(String host) async {
@@ -80,14 +84,45 @@ class _NewChatViewState extends State<NewChatView> {
             var userRes = jsonDecode(res.body);
             setState(() {
               var contact = User.fromJson(userRes);
-              users.add(contact);
-              selectedUser ??= contact;
+              contacts.add(contact);
             });
           } else {
             print("Failed to get user");
             print(res.statusCode);
           }
         });
+  }
+
+  Widget header(String text) {
+    return Row(
+      children: [
+        Expanded(child: Divider()),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(text),
+        ),
+        Expanded(child: Divider()),
+      ],
+    );
+  }
+
+  List<User> unselectedContacts() {
+    return contacts.where((contact) {
+      return !selectedContacts.contains(contact) &&
+          (searchTerm.isEmpty || contact.name.contains(searchTerm));
+    }).toList();
+  }
+
+  List<User> filteredSelectedContacts() {
+    return selectedContacts.where((contact) {
+      return searchTerm.isEmpty || contact.name.contains(searchTerm);
+    }).toList();
+  }
+
+  void searchContacts() {
+    setState(() {
+      searchTerm = filterController.text;
+    });
   }
 
   @override
@@ -108,11 +143,11 @@ class _NewChatViewState extends State<NewChatView> {
                   ),
                 );
 
-                if (newContact != null && !users.contains(newContact)) {
+                if (newContact != null && !contacts.contains(newContact)) {
                   setState(() {
-                    users.add(newContact);
+                    contacts.add(newContact);
+                    selectedContacts.add(newContact);
                   });
-                  selectedUser = newContact;
                 }
               },
               icon: Icon(Icons.person_add),
@@ -121,7 +156,7 @@ class _NewChatViewState extends State<NewChatView> {
         ],
       ),
       body:
-          selectedUser != null
+          contacts.isNotEmpty
               ? Form(
                 key: formKey,
                 child: Column(
@@ -143,26 +178,51 @@ class _NewChatViewState extends State<NewChatView> {
                               return null;
                             },
                           ),
+                          TextField(
+                            controller: filterController,
+                            decoration: const InputDecoration(
+                              labelText: "Filter Contacts",
+                            ),
+                          ),
                           Padding(
                             padding: const EdgeInsets.only(top: 8.0),
                             child: FractionallySizedBox(
                               widthFactor: 1,
-                              child: DropdownButton<User>(
-                                value: selectedUser,
-                                items:
-                                    users.map<DropdownMenuItem<User>>((
-                                      User user,
-                                    ) {
-                                      return DropdownMenuItem<User>(
-                                        value: user,
-                                        child: Text(user.name),
-                                      );
-                                    }).toList(),
-                                onChanged: (user) {
-                                  setState(() {
-                                    selectedUser = user!;
-                                  });
-                                },
+                              child: Column(
+                                children: [
+                                  Column(
+                                    children:
+                                        filteredSelectedContacts().isEmpty
+                                            ? []
+                                            : [
+                                              header("Selected"),
+                                              for (var contact
+                                                  in filteredSelectedContacts())
+                                                UserCard(
+                                                  user: contact,
+                                                  selectUser: () {
+                                                    setState(() {
+                                                      selectedContacts.remove(
+                                                        contact,
+                                                      );
+                                                    });
+                                                  },
+                                                  showDivider: false,
+                                                ),
+                                            ],
+                                  ),
+                                  header("Unselected"),
+                                  for (var contact in unselectedContacts())
+                                    UserCard(
+                                      user: contact,
+                                      selectUser: () {
+                                        setState(() {
+                                          selectedContacts.add(contact);
+                                        });
+                                      },
+                                      showDivider: false,
+                                    ),
+                                ],
                               ),
                             ),
                           ),
@@ -172,68 +232,81 @@ class _NewChatViewState extends State<NewChatView> {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 24),
                       child: FilledButton(
-                        onPressed: () async {
-                          if (formKey.currentState!.validate()) {
-                            try {
-                              var res = await http.post(
-                                Uri.parse(
-                                  "http://${widget.host}/api/chat/storage",
-                                ),
-                                headers: headers,
-                                body: jsonEncode({
-                                  "users": [user.id, selectedUser!.id],
-                                  "name": nameController.text,
-                                }),
-                              );
-                              if (res.statusCode != 200) {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) {
-                                    return AlertDialog(
-                                      title: Text("Creating Chat Failed"),
-                                      content: Text(
-                                        "It seems like we couldn't create the chat. Please try again later.",
-                                      ),
-                                      actions: [
-                                        FilledButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                          },
-                                          child: Text("Ok"),
+                        onPressed:
+                            selectedContacts.isEmpty
+                                ? null
+                                : () async {
+                                  if (formKey.currentState!.validate()) {
+                                    try {
+                                      var res = await http.post(
+                                        Uri.parse(
+                                          "http://${widget.host}/api/chat/storage",
                                         ),
-                                      ],
-                                    );
-                                  },
-                                );
-                                return;
-                              }
-                              var newId = jsonDecode(res.body)["id"];
-                              Navigator.of(
-                                context,
-                              ).pop(Chat(id: newId, name: nameController.text));
-                            } catch (e) {
-                              showDialog(
-                                context: context,
-                                builder: (context) {
-                                  return AlertDialog(
-                                    title: Text("Creating Chat Failed"),
-                                    content: Text(
-                                      "It seems like we couldn't create the chat. Please contact your administrator.",
-                                    ),
-                                    actions: [
-                                      FilledButton(
-                                        onPressed: () {
-                                          Navigator.pop(context);
+                                        headers: headers,
+                                        body: jsonEncode({
+                                          "users": [
+                                            user.id,
+                                            for (var contact
+                                                in selectedContacts)
+                                              contact.id,
+                                          ],
+                                          "name": nameController.text,
+                                        }),
+                                      );
+                                      if (res.statusCode != 200) {
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) {
+                                            return AlertDialog(
+                                              title: Text(
+                                                "Creating Chat Failed",
+                                              ),
+                                              content: Text(
+                                                "It seems like we couldn't create the chat. Please try again later.",
+                                              ),
+                                              actions: [
+                                                FilledButton(
+                                                  onPressed: () {
+                                                    Navigator.pop(context);
+                                                  },
+                                                  child: Text("Ok"),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+                                        return;
+                                      }
+                                      var newId = jsonDecode(res.body)["id"];
+                                      Navigator.of(context).pop(
+                                        Chat(
+                                          id: newId,
+                                          name: nameController.text,
+                                        ),
+                                      );
+                                    } catch (e) {
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) {
+                                          return AlertDialog(
+                                            title: Text("Creating Chat Failed"),
+                                            content: Text(
+                                              "It seems like we couldn't create the chat. Please contact your administrator.",
+                                            ),
+                                            actions: [
+                                              FilledButton(
+                                                onPressed: () {
+                                                  Navigator.pop(context);
+                                                },
+                                                child: Text("Ok"),
+                                              ),
+                                            ],
+                                          );
                                         },
-                                        child: Text("Ok"),
-                                      ),
-                                    ],
-                                  );
+                                      );
+                                    }
+                                  }
                                 },
-                              );
-                            }
-                          }
-                        },
                         child: const Text("Start Chat"),
                       ),
                     ),

@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:noteschat/components/Chat/ChatView.dart';
-import 'package:noteschat/dtos/Chat.dart';
 import 'package:noteschat/login.dart';
 
 class UserCard extends StatelessWidget {
   final User user;
   final Function selectUser;
+  final bool? showDivider;
 
-  const UserCard({super.key, required this.user, required this.selectUser});
+  const UserCard({
+    super.key,
+    required this.user,
+    required this.selectUser,
+    this.showDivider,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +29,7 @@ class UserCard extends StatelessWidget {
             ),
           ),
         ),
-        Divider(),
+        showDivider != null && showDivider! == false ? Container() : Divider(),
       ],
     );
   }

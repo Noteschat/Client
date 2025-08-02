@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:noteschat/components/AddContact/UserCard.dart';
-import 'package:noteschat/dtos/Chat.dart';
 import 'package:noteschat/login.dart';
 
 class AddContactView extends StatefulWidget {
