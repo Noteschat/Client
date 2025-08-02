@@ -203,13 +203,15 @@ class _NotesSelectState extends State<NotesSelect> {
                             return !updatedTags.contains(tag);
                           });
                           var added = updatedTags.where((tag) {
-                            return !note.tags.contains(tag);
+                            return !note.tags.contains(tag) &&
+                                !tags.contains(tag);
                           });
                           setState(() {
                             for (var tag in removed) {
                               tags.remove(tag);
                             }
                             tags.addAll(added);
+
                             note.tags.clear();
                             note.tags.addAll(tags);
                           });
