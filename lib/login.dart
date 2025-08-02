@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:noteschat/register.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 String sessionId = "";
 var headers = <String, String>{"Cookie": "sessionId=$sessionId"};
@@ -32,18 +33,45 @@ class _LoginViewState extends State<LoginView> {
   final passwordController = TextEditingController();
 
   bool showPassword = false;
+  bool loadingData = true;
+
+  LoginData? loginData;
+
+  _LoginViewState() {
+    fetchData();
+  }
+
+  void fetchData() async {
+    loginData = await loadLoginData();
+
+    if (loginData != null) {
+      setState(() {
+        nameController.text = loginData!.name;
+        passwordController.text = loginData!.password;
+      });
+    }
+
+    setState(() {
+      loadingData = false;
+    });
+  }
 
   void login(BuildContext context) async {
     if (!formKey.currentState!.validate()) {
       return;
     }
 
+    loginData = LoginData(
+      password: passwordController.text,
+      name: nameController.text,
+    );
+
     try {
       var res = await http.post(
         Uri.parse("http://${widget.host}/api/identity/login"),
         body: jsonEncode({
-          "name": nameController.text,
-          "password": passwordController.text,
+          "name": loginData!.name,
+          "password": loginData!.password,
         }),
       );
       if (res.statusCode != 200) {
@@ -68,6 +96,8 @@ class _LoginViewState extends State<LoginView> {
       }
       var cookie = res.headers['set-cookie'];
       sessionId = cookie?.split('sessionId=')[1].split(';')[0] ?? "";
+
+      loginData!.save();
     } catch (e) {
       showDialog(
         context: context,
@@ -141,100 +171,111 @@ class _LoginViewState extends State<LoginView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Form(
-        key: formKey,
-        child: Padding(
-          padding: const EdgeInsets.only(left: 16.0, right: 16.0),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: 350.0),
-              child: Column(
-                children: [
-                  Spacer(),
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16.0),
-                      color: Theme.of(context).colorScheme.surfaceContainer,
-                    ),
-                    padding: EdgeInsets.all(16.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        TextFormField(
-                          controller: nameController,
-                          decoration: const InputDecoration(labelText: "Name"),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return "Enter your username...";
-                            }
-                            return null;
-                          },
-                        ),
-                        TextFormField(
-                          controller: passwordController,
-                          obscureText: !showPassword,
-                          decoration: InputDecoration(
-                            labelText: "Password",
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                !showPassword
-                                    ? Icons.visibility
-                                    : Icons.visibility_off,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  showPassword = !showPassword;
-                                });
-                              },
+      body:
+          loadingData
+              ? Center(child: Text("Loading..."))
+              : Form(
+                key: formKey,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 16.0, right: 16.0),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: 350.0),
+                      child: Column(
+                        children: [
+                          Spacer(),
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16.0),
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainer,
+                            ),
+                            padding: EdgeInsets.all(16.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                TextFormField(
+                                  controller: nameController,
+                                  decoration: const InputDecoration(
+                                    labelText: "Name",
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return "Enter your username...";
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                TextFormField(
+                                  controller: passwordController,
+                                  obscureText: !showPassword,
+                                  decoration: InputDecoration(
+                                    labelText: "Password",
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        !showPassword
+                                            ? Icons.visibility
+                                            : Icons.visibility_off,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          showPassword = !showPassword;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return "Enter your password...";
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 16.0),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: 16.0,
+                                        ),
+                                        child: OutlinedButton(
+                                          onPressed: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder:
+                                                    (context) => RegisterView(
+                                                      host: widget.host,
+                                                    ),
+                                              ),
+                                            );
+                                          },
+                                          child: Text("Register"),
+                                        ),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () {
+                                          login(context);
+                                        },
+                                        child: Text("Login"),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return "Enter your password...";
-                            }
-                            return null;
-                          },
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 16.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(right: 16.0),
-                                child: OutlinedButton(
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) =>
-                                                RegisterView(host: widget.host),
-                                      ),
-                                    );
-                                  },
-                                  child: Text("Register"),
-                                ),
-                              ),
-                              FilledButton(
-                                onPressed: () {
-                                  login(context);
-                                },
-                                child: Text("Login"),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                          Spacer(),
+                        ],
+                      ),
                     ),
                   ),
-                  Spacer(),
-                ],
+                ),
               ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -261,4 +302,46 @@ class User {
 
   @override
   int get hashCode => Object.hash(id, name);
+}
+
+class LoginData {
+  final String password;
+  final String name;
+
+  LoginData({required this.password, required this.name});
+
+  factory LoginData.fromJson(Map<String, dynamic> json) {
+    return LoginData(password: json['password'], name: json['name']);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'password': password, 'name': name};
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is LoginData &&
+        other.password == password &&
+        other.name == name;
+  }
+
+  @override
+  int get hashCode => Object.hash(password, name);
+
+  Future<void> save() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString('notesChatLoginData', jsonEncode(this));
+  }
+}
+
+Future<LoginData?> loadLoginData() async {
+  final prefs = await SharedPreferences.getInstance();
+  final String? json = prefs.getString('notesChatLoginData');
+  if (json != null) {
+    final LoginData loginData = LoginData.fromJson(jsonDecode(json));
+    return loginData;
+  }
+
+  return null;
 }
