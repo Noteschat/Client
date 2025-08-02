@@ -43,35 +43,55 @@ class _ChatSelectState extends State<ChatSelect> {
                   Padding(
                     padding: EdgeInsets.only(right: 8.0),
                     child: IconButton(
-                      icon: Icon(Icons.add),
-                      onPressed:
-                          users.isEmpty
-                              ? null
-                              : () async {
-                                Chat? newChat = await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (context) =>
-                                            NewChatView(host: widget.host),
-                                  ),
-                                );
-                                if (newChat != null) {
-                                  setState(() {
-                                    chats.add(newChat);
-                                  });
-
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder:
-                                          (context) => ChatView(
-                                            chatId: newChat.id,
-                                            host: widget.host,
-                                          ),
-                                    ),
-                                  );
-                                }
-                              },
+                      icon: Icon(Icons.person_outlined),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) {
+                            return AlertDialog(
+                              title: Text("Logout"),
+                              content: Text(
+                                "You are currently logged in as ${user.name}. Do you want to logout?",
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                  },
+                                  child: Text("Cancel"),
+                                ),
+                                FilledButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    logout();
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) => LoginView(
+                                              host: widget.host,
+                                              onLogin: (BuildContext context) {
+                                                Navigator.pushReplacement(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder:
+                                                        (context) => ChatSelect(
+                                                          host: widget.host,
+                                                        ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                  child: Text("Logout"),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -94,6 +114,33 @@ class _ChatSelectState extends State<ChatSelect> {
             ],
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        child: Icon(sessionId.isEmpty ? Icons.circle_outlined : Icons.add),
+        onPressed:
+            users.isEmpty
+                ? null
+                : () async {
+                  Chat? newChat = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => NewChatView(host: widget.host),
+                    ),
+                  );
+                  if (newChat != null) {
+                    setState(() {
+                      chats.add(newChat);
+                    });
+
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder:
+                            (context) =>
+                                ChatView(chatId: newChat.id, host: widget.host),
+                      ),
+                    );
+                  }
+                },
       ),
     );
   }

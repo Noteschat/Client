@@ -2,29 +2,17 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:noteschat/register.dart';
 
-String sessionId = "";
-var headers = <String, String>{"Cookie": "sessionId=$sessionId"};
-
-late User user;
-
-void logout() {
-  sessionId = "";
-  user = User(id: "", name: "");
-}
-
-class LoginView extends StatefulWidget {
-  final Function(BuildContext context) onLogin;
+class RegisterView extends StatefulWidget {
   final String host;
 
-  LoginView({super.key, required this.onLogin, required this.host});
+  RegisterView({super.key, required this.host});
 
   @override
-  State<LoginView> createState() => _LoginViewState();
+  State<RegisterView> createState() => _RegisterViewState();
 }
 
-class _LoginViewState extends State<LoginView> {
+class _RegisterViewState extends State<RegisterView> {
   final formKey = GlobalKey<FormState>();
 
   final nameController = TextEditingController();
@@ -33,14 +21,14 @@ class _LoginViewState extends State<LoginView> {
 
   bool showPassword = false;
 
-  void login(BuildContext context) async {
+  void register(BuildContext context) async {
     if (!formKey.currentState!.validate()) {
       return;
     }
 
     try {
       var res = await http.post(
-        Uri.parse("http://${widget.host}/api/identity/login"),
+        Uri.parse("http://${widget.host}/api/identity/user"),
         body: jsonEncode({
           "name": nameController.text,
           "password": passwordController.text,
@@ -51,9 +39,11 @@ class _LoginViewState extends State<LoginView> {
           context: context,
           builder: (context) {
             return AlertDialog(
-              title: Text("Login Failed"),
+              title: Text("Registration Failed"),
               content: Text(
-                "Your Username and/or Password are incorrect. Please check them and try again.",
+                res.statusCode == 400
+                    ? "This Username is already taken. Please change it."
+                    : "Looks like we couldn't register you in! Please try again later.",
               ),
               actions: [
                 FilledButton(
@@ -66,64 +56,14 @@ class _LoginViewState extends State<LoginView> {
         );
         return;
       }
-      var cookie = res.headers['set-cookie'];
-      sessionId = cookie?.split('sessionId=')[1].split(';')[0] ?? "";
     } catch (e) {
       showDialog(
         context: context,
         builder: (context) {
           return AlertDialog(
-            title: Text("Login Error"),
+            title: Text("Registration Error"),
             content: Text(
-              "Looks like we couldn't log you in! Please try again later.\n$e",
-            ),
-            actions: [
-              FilledButton(
-                onPressed: Navigator.of(context).pop,
-                child: Text("Ok"),
-              ),
-            ],
-          );
-        },
-      );
-      return;
-    }
-
-    try {
-      var userRes = await http.get(
-        Uri.parse("http://${widget.host}/api/identity/login/valid"),
-        headers: headers,
-      );
-      if (userRes.statusCode != 200) {
-        showDialog(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: Text("Login Failed"),
-              content: Text(
-                "Looks like your login data was correct, but we couldn't fetch your user data! Please contact your administrator.",
-              ),
-              actions: [
-                FilledButton(
-                  onPressed: Navigator.of(context).pop,
-                  child: Text("Ok"),
-                ),
-              ],
-            );
-          },
-        );
-        return;
-      }
-      user = User.fromJson(jsonDecode(userRes.body));
-      widget.onLogin(context);
-    } catch (e) {
-      showDialog(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: Text("Login Error"),
-            content: Text(
-              "Looks like we couldn't fetch your user data! Please try again later.\n$e",
+              "Looks like we couldn't register you in! Please try again later.\n$e",
             ),
             actions: [
               FilledButton(
@@ -204,23 +144,17 @@ class _LoginViewState extends State<LoginView> {
                                 padding: const EdgeInsets.only(right: 16.0),
                                 child: OutlinedButton(
                                   onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) =>
-                                                RegisterView(host: widget.host),
-                                      ),
-                                    );
+                                    Navigator.of(context).pop();
                                   },
-                                  child: Text("Register"),
+                                  child: Text("Cancel"),
                                 ),
                               ),
                               FilledButton(
                                 onPressed: () {
-                                  login(context);
+                                  register(context);
+                                  Navigator.of(context).pop();
                                 },
-                                child: Text("Login"),
+                                child: Text("Register"),
                               ),
                             ],
                           ),
@@ -237,28 +171,4 @@ class _LoginViewState extends State<LoginView> {
       ),
     );
   }
-}
-
-class User {
-  final String id;
-  final String name;
-
-  User({required this.id, required this.name});
-
-  factory User.fromJson(Map<String, dynamic> json) {
-    return User(id: json['id'], name: json['name']);
-  }
-
-  Map<String, dynamic> toJson() {
-    return {'id': id, 'name': name};
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is User && other.id == id && other.name == name;
-  }
-
-  @override
-  int get hashCode => Object.hash(id, name);
 }

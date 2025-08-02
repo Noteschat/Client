@@ -37,41 +37,45 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
   final FocusNode _focusNode = FocusNode();
 
   _ChatViewState(String host) {
-    queue = Queue(handleMessage: (data) {
-      if(messages.last.messageId == data.messageId) {
-        if(data.version > messages.last.version) {
+    queue = Queue(
+      handleMessage: (data) {
+        if (messages.last.messageId == data.messageId) {
+          if (data.version > messages.last.version) {
+            setState(() {
+              messages.last = ServerMessage(
+                content: messages.last.content + data.content,
+                userId: data.userId,
+                messageId: data.messageId,
+                version: data.version,
+                chatId: data.chatId,
+              );
+            });
+          }
+        } else {
           setState(() {
-            messages.last = ServerMessage(
-              content: messages.last.content + data.content,
-              userId: data.userId,
-              messageId: data.messageId,
-              version: data.version,
-              chatId: data.chatId
-            );
+            messages.add(data);
           });
         }
-      } else {
-        setState(() {
-          messages.add(data);
-        });
-      }
-    });
+      },
+    );
     setup(host);
   }
 
   void setup(String host) async {
-    if(disposing){
+    if (disposing) {
       return;
     }
     try {
-      if(_connector != null){
+      if (_connector != null) {
         _connector?.sink.close();
         _connector = null;
       }
-      _connector = WebSocketChannel.connect(Uri.parse('ws://$host/api/chatrouter?sessionId=$sessionId'));
+      _connector = WebSocketChannel.connect(
+        Uri.parse('ws://$host/api/chatrouter?sessionId=$sessionId'),
+      );
       await _connector?.ready;
       WidgetsBinding.instance.scheduleFrameCallback((_) {
-        if(disposing) {
+        if (disposing) {
           return;
         }
         setState(() {
@@ -80,16 +84,16 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
         addListener(host);
       });
       return;
-    } on SocketException catch(e) {
+    } on SocketException catch (e) {
       print("$e");
     } on WebSocketChannelException catch (e) {
       // ignore: unrelated_type_equality_checks
-      if(e.inner.runtimeType == "WebSocketException") {
+      if (e.inner.runtimeType == "WebSocketException") {
         print((e.inner as WebSocketException).message);
       } else {
         print("$e");
       }
-    } catch(e) {
+    } catch (e) {
       print("Unexpected Exception: $e");
     }
     print("Trying again in 1 second.");
@@ -98,19 +102,21 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
   }
 
   void addListener(String host) {
-    if(_connector != null && connected){
+    if (_connector != null && connected) {
       try {
         _connector?.stream.listen(
           (data) {
-            ServerMessage serverJson = ServerMessage.fromJson(jsonDecode(data as String));
-            if(serverJson.chatId == widget.chatId){
+            ServerMessage serverJson = ServerMessage.fromJson(
+              jsonDecode(data as String),
+            );
+            if (serverJson.chatId == widget.chatId) {
               setState(() {
                 queue.add(serverJson);
               });
             }
           },
           onDone: () {
-            if(disposing) {
+            if (disposing) {
               return;
             }
             // server closed, reconnecting
@@ -120,7 +126,7 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
             setup(host);
           },
           onError: (_) {
-            if(disposing) {
+            if (disposing) {
               return;
             }
             // connection lost, reconnecting
@@ -128,10 +134,9 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
               connected = false;
             });
             setup(host);
-          }
+          },
         );
-      }
-      catch (_) {
+      } catch (_) {
         setup(host);
       }
       fetch();
@@ -139,53 +144,60 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
   }
 
   void fetch() async {
-    if(disposing) {
+    if (disposing) {
       return;
     }
     try {
       // to prevent skipping messages, we wait for the next block for up to 5-seconds
       int waited = 0;
-      while(queue.length() <= 0 && waited < 50){
+      while (queue.length() <= 0 && waited < 50) {
         await Future.delayed(Duration(milliseconds: 100));
         waited++;
       }
 
-      var res = await http.get(Uri.parse("http://${widget.host}/api/chat/storage/${widget.chatId}"), headers: headers);
+      var res = await http.get(
+        Uri.parse("http://${widget.host}/api/chat/storage/${widget.chatId}"),
+        headers: headers,
+      );
 
-      if(res.statusCode == 200) {
+      if (res.statusCode == 200) {
         List<dynamic> msgs = jsonDecode(res.body)["messages"];
-        for(var message in msgs) {
+        for (var message in msgs) {
           StorageMessage msg = StorageMessage.fromJson(message);
           setState(() {
-            messages.add(ServerMessage(
-              version: msg.version,
-              messageId: msg.messageId,
-              content: msg.content,
-              chatId: widget.chatId,
-              userId: msg.userId
-            ));
+            messages.add(
+              ServerMessage(
+                version: msg.version,
+                messageId: msg.messageId,
+                content: msg.content,
+                chatId: widget.chatId,
+                userId: msg.userId,
+              ),
+            );
           });
         }
         setState(() {
           queue.fetching = false;
         });
-      }else{
+      } else {
         showDialog(
           context: context,
           builder: (context) {
             return AlertDialog(
               title: Text("Getting Chat Failed"),
-              content: Text("It seems like we couldn't get your chat. Please try again later."),
+              content: Text(
+                "It seems like we couldn't get your chat. Please try again later.",
+              ),
               actions: [
                 FilledButton(
                   onPressed: () {
                     Navigator.pop(context);
                   },
-                  child: Text("Ok")
-                )
+                  child: Text("Ok"),
+                ),
               ],
             );
-          }
+          },
         );
       }
     } catch (e) {}
@@ -193,7 +205,7 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
 
   void onPressed(ServerMessage message) {
     showDialog(
-      context: context, 
+      context: context,
       builder: (context) {
         return AlertDialog(
           title: Text("Message"),
@@ -203,7 +215,7 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
               onPressed: () {
                 Navigator.pop(context);
               },
-              child: Text("Cancel")
+              child: Text("Cancel"),
             ),
             IconButton.filled(
               onPressed: () {
@@ -211,14 +223,14 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
 
                 onAddNote(message);
               },
-              icon: Icon(Icons.note_add_outlined)
+              icon: Icon(Icons.note_add_outlined),
             ),
             IconButton.filled(
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: message.content));
                 Navigator.pop(context);
               },
-              icon: Icon(Icons.copy)
+              icon: Icon(Icons.copy),
             ),
             IconButton.filled(
               onPressed: () {
@@ -226,11 +238,11 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
 
                 onDelete(message);
               },
-              icon: Icon(Icons.delete_outline)
+              icon: Icon(Icons.delete_outline),
             ),
           ],
         );
-      }
+      },
     );
   }
 
@@ -244,9 +256,7 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
           title: Text("Save as Note"),
           content: TextField(
             controller: _noteNameController,
-            decoration: InputDecoration(
-              hintText: "Note name"
-            ),
+            decoration: InputDecoration(hintText: "Note name"),
           ),
           actions: [
             OutlinedButton(
@@ -254,7 +264,7 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
                 Navigator.pop(context);
                 onPressed(message);
               },
-              child: Text("Cancel")
+              child: Text("Cancel"),
             ),
             FilledButton(
               onPressed: () async {
@@ -263,14 +273,16 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
                 });
                 try {
                   var res = await http.post(
-                    Uri.parse("http://${widget.host}/api/notes/storage/${widget.chatId}"),
+                    Uri.parse(
+                      "http://${widget.host}/api/notes/storage/${widget.chatId}",
+                    ),
                     headers: headers,
                     body: jsonEncode({
                       "name": _noteNameController.text,
-                      "content": message.content
-                    })
+                      "content": message.content,
+                    }),
                   );
-                  if(res.statusCode != 200){
+                  if (res.statusCode != 200) {
                     onError("Couldn't save message as note!");
                     return;
                   }
@@ -289,7 +301,7 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
             ),
           ],
         );
-      }
+      },
     );
   }
 
@@ -306,7 +318,7 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
                 Navigator.pop(context);
                 onPressed(message);
               },
-              child: Text("Cancel")
+              child: Text("Cancel"),
             ),
             FilledButton(
               onPressed: () async {
@@ -314,8 +326,13 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
                   deletingMessage = true;
                 });
                 try {
-                  var res = await http.delete(Uri.parse("http://${widget.host}/api/chat/storage/${widget.chatId}/${message.messageId}"), headers: headers);
-                  if(res.statusCode != 200){
+                  var res = await http.delete(
+                    Uri.parse(
+                      "http://${widget.host}/api/chat/storage/${widget.chatId}/${message.messageId}",
+                    ),
+                    headers: headers,
+                  );
+                  if (res.statusCode != 200) {
                     onError("Couldn't delete message!");
                     return;
                   }
@@ -332,11 +349,14 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
 
                 Navigator.pop(context);
               },
-              child: deletingMessage ? Icon(Icons.circle_outlined) : Text("Delete"),
+              child:
+                  deletingMessage
+                      ? Icon(Icons.circle_outlined)
+                      : Text("Delete"),
             ),
           ],
         );
-      }
+      },
     );
   }
 
@@ -352,11 +372,11 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
               onPressed: () {
                 Navigator.pop(context);
               },
-              child: Text("Ok")
+              child: Text("Ok"),
             ),
           ],
         );
-      }
+      },
     );
   }
 
@@ -374,15 +394,19 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
           Padding(
             padding: EdgeInsets.only(right: 8.0),
             child: IconButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => NotesSelect(chatId: widget.chatId, host: widget.host)
-                    )
-                  );
-                },
-                icon: Icon(Icons.library_books_outlined)
-              )
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder:
+                        (context) => NotesSelect(
+                          chatId: widget.chatId,
+                          host: widget.host,
+                        ),
+                  ),
+                );
+              },
+              icon: Icon(Icons.library_books_outlined),
+            ),
           ),
         ],
       ),
@@ -395,10 +419,11 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    for(var message in messages) Message(data: message, onPressed: onPressed,)
-                  ]
+                    for (var message in messages)
+                      Message(data: message, onPressed: onPressed),
+                  ],
                 ),
-              )
+              ),
             ),
           ),
           Padding(
@@ -423,28 +448,33 @@ class _ChatViewState extends State<ChatView> with WidgetsBindingObserver {
                 Padding(
                   padding: const EdgeInsets.only(left: 12.0, bottom: 20.0),
                   child: IconButton.filled(
-                    onPressed: connected && !queue.fetching ? () {
-                      var value = _controller.text;
-                      var message = ServerMessage(
-                        content: value, 
-                        userId: user.id,
-                        messageId: UuidV4().generate(),
-                        version: 0,
-                        chatId: widget.chatId
-                      );
-                      setState(() {
-                        messages.add(message);
-                      });
-                      _connector?.sink.add(jsonEncode(message.toJson()));
-                      _controller.clear();
-                      _focusNode.requestFocus();
-                    } : null,
+                    onPressed:
+                        connected && !queue.fetching
+                            ? () {
+                              var value = _controller.text;
+                              var message = ServerMessage(
+                                content: value,
+                                userId: user.id,
+                                messageId: UuidV4().generate(),
+                                version: 0,
+                                chatId: widget.chatId,
+                              );
+                              setState(() {
+                                messages.add(message);
+                              });
+                              _connector?.sink.add(
+                                jsonEncode(message.toJson()),
+                              );
+                              _controller.clear();
+                              _focusNode.requestFocus();
+                            }
+                            : null,
                     icon: Icon(Icons.send),
                   ),
-                )
+                ),
               ],
-            )
-          )
+            ),
+          ),
         ],
       ),
     );

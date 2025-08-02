@@ -38,6 +38,7 @@ class _AddContactViewState extends State<AddContactView> {
         await http
             .post(
               Uri.parse("http://${widget.host}/api/identity/search"),
+              headers: headers,
               body: jsonEncode({"name": searchTerm}),
             )
             .then((res) {
@@ -48,8 +49,8 @@ class _AddContactViewState extends State<AddContactView> {
                 var searchRes = jsonDecode(res.body)["users"];
                 for (var userJson in searchRes) {
                   setState(() {
-                    var user = User.fromJson(userJson);
-                    users.add(user);
+                    var contact = User.fromJson(userJson);
+                    users.add(contact);
                   });
                 }
               } else {
@@ -163,17 +164,17 @@ class _AddContactViewState extends State<AddContactView> {
               ),
             ),
             Padding(padding: EdgeInsets.only(bottom: 8.0)),
-            for (user in users)
+            for (var contact in users)
               UserCard(
-                user: user,
+                user: contact,
                 selectUser: () async {
                   await http.post(
                     Uri.parse(
-                      "http://${widget.host}/api/contacts/list/${user.id}",
+                      "http://${widget.host}/api/contacts/list/${contact.id}",
                     ),
                     headers: headers,
                   );
-                  Navigator.of(context).pop(user);
+                  Navigator.of(context).pop(contact);
                 },
               ),
           ],

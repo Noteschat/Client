@@ -42,9 +42,9 @@ class _NewChatViewState extends State<NewChatView> {
             for (var contact in contactsRes) {
               tasks.add(fetchUser(host, contact["id"]));
             }
-            if (tasks.length <= 0) {
+            if (tasks.isEmpty) {
               setState(() {
-                hasContacts = true;
+                hasContacts = false;
               });
             }
 
@@ -238,20 +238,20 @@ class _NewChatViewState extends State<NewChatView> {
                                 : () async {
                                   if (formKey.currentState!.validate()) {
                                     try {
+                                      var body = jsonEncode({
+                                        "users": [
+                                          user.id,
+                                          for (var contact in selectedContacts)
+                                            contact.id,
+                                        ],
+                                        "name": nameController.text,
+                                      });
                                       var res = await http.post(
                                         Uri.parse(
                                           "http://${widget.host}/api/chat/storage",
                                         ),
                                         headers: headers,
-                                        body: jsonEncode({
-                                          "users": [
-                                            user.id,
-                                            for (var contact
-                                                in selectedContacts)
-                                              contact.id,
-                                          ],
-                                          "name": nameController.text,
-                                        }),
+                                        body: body,
                                       );
                                       if (res.statusCode != 200) {
                                         showDialog(
@@ -317,7 +317,7 @@ class _NewChatViewState extends State<NewChatView> {
                 child: Text(
                   hasContacts
                       ? "Loading Contacts..."
-                      : "You have no contacts to start a chat with.",
+                      : "You have no contacts to start a chat with. Add them by pressing the button in the top right corner",
                 ),
               ),
     );
