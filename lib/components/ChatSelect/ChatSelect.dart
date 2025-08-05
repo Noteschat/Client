@@ -32,7 +32,7 @@ class _ChatSelectState extends State<ChatSelect> {
         backgroundColor: Theme.of(context).colorScheme.surfaceBright,
         title: Text("Chats"),
         actions:
-            users.isEmpty
+            sessionId.isEmpty
                 ? [
                   Padding(
                     padding: EdgeInsets.only(right: 8.0),
@@ -116,9 +116,8 @@ class _ChatSelectState extends State<ChatSelect> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        child: Icon(sessionId.isEmpty ? Icons.circle_outlined : Icons.add),
         onPressed:
-            users.isEmpty
+            sessionId.isEmpty
                 ? null
                 : () async {
                   Chat? newChat = await Navigator.push(
@@ -141,6 +140,7 @@ class _ChatSelectState extends State<ChatSelect> {
                     );
                   }
                 },
+        child: Icon(sessionId.isEmpty ? Icons.circle_outlined : Icons.add),
       ),
     );
   }
